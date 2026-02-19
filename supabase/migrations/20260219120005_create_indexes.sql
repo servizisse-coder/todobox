@@ -1,0 +1,11 @@
+CREATE INDEX idx_todo_tasks_created_by ON todo_tasks(created_by);
+CREATE INDEX idx_todo_tasks_assigned_to ON todo_tasks(assigned_to);
+CREATE INDEX idx_todo_tasks_claimed_by ON todo_tasks(claimed_by);
+CREATE INDEX idx_todo_tasks_status ON todo_tasks(status);
+CREATE INDEX idx_todo_tasks_visibility ON todo_tasks(visibility);
+CREATE INDEX idx_todo_tasks_due_date ON todo_tasks(due_date);
+CREATE INDEX idx_todo_assignments_to_user ON todo_assignments(to_user);
+CREATE INDEX idx_todo_assignments_task_id ON todo_assignments(task_id);
+CREATE INDEX idx_todo_updates_task_id ON todo_updates(task_id);
+CREATE INDEX idx_todo_notifications_user_id ON todo_notifications(user_id);
+CREATE INDEX idx_todo_notifications_is_read ON todo_notifications(is_read);
