@@ -31,12 +31,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const initializedRef = useRef(false)
 
+  const loadProfile = useCallback(async (userId: string, email?: string, fullName?: string) => {
+    try {
+      const supabase = createClient()
+      const { data: existingProfile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email || '',
+            full_name: fullName || (email ? email.split('@')[0] : 'Utente'),
+          })
+          .select()
+          .single()
+        if (newProfile) setProfile(newProfile as Profile)
+      } else if (existingProfile) {
+        setProfile(existingProfile as Profile)
+      }
+    } catch (err) {
+      console.error('[AuthProvider] Profile load error:', err)
+    }
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       const supabase = createClient()
       await supabase.auth.signOut()
     } catch (e) {
-      console.error('Sign out error:', e)
+      console.error('[AuthProvider] Sign out error:', e)
     }
     setUser(null)
     setProfile(null)
@@ -44,103 +72,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router])
 
   useEffect(() => {
-    // Prevent double initialization in strict mode
     if (initializedRef.current) return
     initializedRef.current = true
 
+    const supabase = createClient()
     let mounted = true
 
-    // Safety timeout — if auth takes more than 3 seconds, stop loading
+    // Safety timeout
     const timeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth initialization timeout — forcing loading to false')
+      if (mounted) {
+        console.warn('[AuthProvider] Timeout — forcing loading=false')
         setLoading(false)
       }
-    }, 3000)
+    }, 5000)
 
+    // Use getUser() — makes a real API call, most reliable way to check auth
     const initAuth = async () => {
       try {
-        const supabase = createClient()
-
-        // First, get the current session directly
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { user: authUser }, error } = await supabase.auth.getUser()
 
         if (!mounted) return
 
-        if (sessionError) {
-          console.error('Session error:', sessionError)
-          setLoading(false)
-          return
+        if (error) {
+          console.warn('[AuthProvider] getUser error:', error.message)
         }
 
-        if (session?.user) {
-          setUser(session.user)
-
-          // Load profile (non-blocking for loading state)
-          try {
-            const { data: existingProfile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-
-            if (mounted && existingProfile) {
-              setProfile(existingProfile as Profile)
-            }
-          } catch (profileErr) {
-            console.error('Profile load error:', profileErr)
-          }
-        }
-
-        if (mounted) setLoading(false)
-
-        // Set up listener for future auth changes (sign in, sign out, token refresh)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, newSession) => {
-            if (!mounted) return
-
-            if (event === 'SIGNED_IN' && newSession?.user) {
-              setUser(newSession.user)
-              try {
-                const { data: prof } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', newSession.user.id)
-                  .single()
-                if (mounted && prof) setProfile(prof as Profile)
-              } catch (e) {
-                console.error('Profile load on sign in:', e)
-              }
-            } else if (event === 'SIGNED_OUT') {
-              setUser(null)
-              setProfile(null)
-              router.push('/login')
-            } else if (event === 'TOKEN_REFRESHED' && newSession?.user) {
-              setUser(newSession.user)
-            }
-          }
-        )
-
-        // Store cleanup function
-        return () => {
-          subscription.unsubscribe()
+        if (authUser) {
+          setUser(authUser)
+          await loadProfile(
+            authUser.id,
+            authUser.email,
+            authUser.user_metadata?.full_name
+          )
         }
       } catch (err) {
-        console.error('Auth initialization error:', err)
-        if (mounted) setLoading(false)
+        console.error('[AuthProvider] Init error:', err)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+          clearTimeout(timeout)
+        }
       }
     }
 
-    let cleanupSubscription: (() => void) | undefined
+    initAuth()
 
-    initAuth().then((cleanup) => {
-      cleanupSubscription = cleanup
-    })
+    // Listen for future auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user)
+          await loadProfile(
+            session.user.id,
+            session.user.email,
+            session.user.user_metadata?.full_name
+          )
+          setLoading(false)
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          router.push('/login')
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setUser(session.user)
+        }
+      }
+    )
 
     return () => {
       mounted = false
       clearTimeout(timeout)
-      cleanupSubscription?.()
+      subscription.unsubscribe()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
