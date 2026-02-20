@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
@@ -32,20 +32,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const initRef = useRef(false)
 
-  const signOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    router.push('/login')
-  }
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    const loadProfile = async (userId: string, email: string, fullName?: string) => {
+  const loadProfile = useCallback(async (userId: string, email: string, fullName?: string) => {
+    try {
+      const supabase = createClient()
       const { data: existingProfile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -67,68 +57,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (existingProfile) {
         setProfile(existingProfile as Profile)
       }
+    } catch (err) {
+      console.error('Error loading profile:', err)
     }
+  }, [])
 
+  const signOut = useCallback(async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    router.push('/login')
+  }, [router])
+
+  // Single effect for auth — runs only once on mount
+  useEffect(() => {
+    const supabase = createClient()
+    let mounted = true
+
+    // Listen for ALL auth state changes, including INITIAL_SESSION
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (!mounted) return
+
+        if (session?.user) {
           setUser(session.user)
           await loadProfile(
             session.user.id,
             session.user.email || '',
             session.user.user_metadata?.full_name
           )
-          setLoading(false)
-        } else if (event === 'SIGNED_OUT') {
+        } else {
           setUser(null)
           setProfile(null)
-          setLoading(false)
-          if (!PUBLIC_ROUTES.includes(pathname)) {
-            router.push('/login')
-          }
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user)
-          await loadProfile(session.user.id, session.user.email || '')
+        }
+
+        setLoading(false)
+
+        // Redirect to login on sign out (only if not already on public route)
+        if (event === 'SIGNED_OUT' && !PUBLIC_ROUTES.includes(window.location.pathname)) {
+          router.push('/login')
         }
       }
     )
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
-  }, [pathname, router])
-
-  useEffect(() => {
-    if (initRef.current) return
-    if (PUBLIC_ROUTES.includes(pathname)) {
-      setLoading(false)
-      return
-    }
-
-    initRef.current = true
-    const supabase = createClient()
-
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-
-      if (session?.user) {
-        setUser(session.user)
-
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        if (existingProfile) {
-          setProfile(existingProfile as Profile)
-        }
-      }
-      setLoading(false)
-    }
-
-    init()
-  }, [pathname])
+  }, [loadProfile, router])
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut }}>
