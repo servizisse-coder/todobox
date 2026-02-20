@@ -31,34 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const initializedRef = useRef(false)
 
-  const loadProfile = useCallback(async (userId: string, email?: string, fullName?: string) => {
-    try {
-      const supabase = createClient()
-      const { data: existingProfile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error && error.code === 'PGRST116') {
-        const { data: newProfile } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            email: email || '',
-            full_name: fullName || (email ? email.split('@')[0] : 'Utente'),
-          })
-          .select()
-          .single()
-        if (newProfile) setProfile(newProfile as Profile)
-      } else if (existingProfile) {
-        setProfile(existingProfile as Profile)
-      }
-    } catch (err) {
-      console.error('[AuthProvider] Profile load error:', err)
-    }
-  }, [])
-
   const signOut = useCallback(async () => {
     try {
       const supabase = createClient()
@@ -78,35 +50,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient()
     let mounted = true
 
-    // Safety timeout
     const timeout = setTimeout(() => {
-      if (mounted) {
-        console.warn('[AuthProvider] Timeout — forcing loading=false')
-        setLoading(false)
-      }
+      if (mounted) setLoading(false)
     }, 5000)
 
-    // Use getUser() — makes a real API call, most reliable way to check auth
-    const initAuth = async () => {
+    const fetchProfile = async (userId: string): Promise<Profile | null> => {
       try {
-        const { data: { user: authUser }, error } = await supabase.auth.getUser()
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) {
+          console.error('[AuthProvider] Profile query error:', error.code, error.message)
+          return null
+        }
+        return data as Profile
+      } catch (err) {
+        console.error('[AuthProvider] Profile fetch exception:', err)
+        return null
+      }
+    }
+
+    const init = async () => {
+      try {
+        // 1. Get authenticated user via API call
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
 
         if (!mounted) return
 
-        if (error) {
-          console.warn('[AuthProvider] getUser error:', error.message)
+        if (userError || !authUser) {
+          console.log('[AuthProvider] No authenticated user:', userError?.message)
+          setLoading(false)
+          clearTimeout(timeout)
+          return
         }
 
-        if (authUser) {
-          setUser(authUser)
-          await loadProfile(
-            authUser.id,
-            authUser.email,
-            authUser.user_metadata?.full_name
-          )
+        // 2. User is authenticated — set immediately
+        setUser(authUser)
+
+        // 3. Fetch profile
+        const prof = await fetchProfile(authUser.id)
+
+        if (!mounted) return
+
+        if (prof) {
+          setProfile(prof)
+        } else {
+          // Profile not found — create a fallback from user metadata
+          const fallbackProfile: Profile = {
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
+            department: null,
+            avatar_url: null,
+            is_admin: false,
+            is_todobox_user: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+          setProfile(fallbackProfile)
+
+          // Try to create profile in DB (non-blocking)
+          supabase.from('profiles').upsert({
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
+          }).then(() => {
+            // Re-fetch the actual profile
+            fetchProfile(authUser.id).then((p) => {
+              if (mounted && p) setProfile(p)
+            })
+          })
         }
       } catch (err) {
-        console.error('[AuthProvider] Init error:', err)
+        console.error('[AuthProvider] Init exception:', err)
       } finally {
         if (mounted) {
           setLoading(false)
@@ -115,20 +134,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    initAuth()
+    init()
 
-    // Listen for future auth changes
+    // Listen for future auth changes (sign in, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
 
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user)
-          await loadProfile(
-            session.user.id,
-            session.user.email,
-            session.user.user_metadata?.full_name
-          )
+          const prof = await fetchProfile(session.user.id)
+          if (mounted && prof) setProfile(prof)
           setLoading(false)
         } else if (event === 'SIGNED_OUT') {
           setUser(null)
