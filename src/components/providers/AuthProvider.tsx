@@ -106,6 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             department: null,
             avatar_url: null,
             is_admin: false,
+            is_direction: false,
+            is_purchasing: false,
             is_todobox_user: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

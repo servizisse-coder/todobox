@@ -23,18 +23,28 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params)
   const router = useRouter()
   const { user } = useAuth()
-  const { tasks, toggleStatus, updatePriority, updateTask, deleteTask } = useTasks()
+  const { tasks, loading: tasksLoading, toggleStatus, updatePriority, updateTask, deleteTask } = useTasks()
   const { updates, addNote } = useTaskUpdates(id)
   const { assignTask } = useAssignments()
   const [assignModalOpen, setAssignModalOpen] = useState(false)
 
   const task = tasks.find(t => t.id === id)
 
+  if (tasksLoading) {
+    return (
+      <AppShell>
+        <div className="text-center py-16">
+          <div className="animate-pulse text-sm text-gray-400">Caricamento task...</div>
+        </div>
+      </AppShell>
+    )
+  }
+
   if (!task) {
     return (
       <AppShell>
         <div className="text-center py-16">
-          <p className="text-sm text-gray-400">Task non trovato o caricamento in corso...</p>
+          <p className="text-sm text-gray-400">Task non trovato.</p>
           <Link href="/tasks" className="text-sm text-blue-500 hover:text-blue-600 mt-2 inline-block">
             Torna ai task
           </Link>
@@ -47,21 +57,25 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const canEdit = isOwner || task.assigned_to === user?.id || task.claimed_by === user?.id
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
-    if (!user) return
-    const supabase = (await import('@/lib/supabase/client')).createClient()
-
-    await supabase.from('todo_tasks').update({
-      status: newStatus,
-      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
-    }).eq('id', task.id)
-
-    await supabase.from('todo_updates').insert({
-      task_id: task.id,
-      user_id: user.id,
-      update_type: 'status_change',
-      old_value: task.status,
-      new_value: newStatus,
-    })
+    if (!task || !user) return
+    if (newStatus === 'done' || task.status === 'done') {
+      // Usa toggleStatus per gestire notifiche e ricorrenze
+      await toggleStatus(task)
+    } else {
+      // Per transizioni intermedie (todo <-> in_progress), usa updateTask
+      await updateTask(task.id, {
+        status: newStatus,
+      })
+      // Crea entry nell'update log
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      await supabase.from('todo_updates').insert({
+        task_id: task.id,
+        user_id: user.id,
+        update_type: 'status_change',
+        old_value: task.status,
+        new_value: newStatus,
+      })
+    }
   }
 
   const handleDelete = async () => {

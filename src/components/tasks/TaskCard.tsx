@@ -120,7 +120,12 @@ export function TaskCard({ task, onToggle, onPriorityChange, onDelete, showAssig
                   </Link>
                   {task.created_by === user?.id && (
                     <button
-                      onClick={() => { onDelete(task.id); setMenuOpen(false) }}
+                      onClick={() => {
+                        if (confirm('Sei sicuro di voler eliminare questo task?')) {
+                          onDelete(task.id)
+                        }
+                        setMenuOpen(false)
+                      }}
                       className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

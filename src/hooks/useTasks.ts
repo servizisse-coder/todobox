@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import type { TodoTask, TaskStatus, TaskPriority, TaskVisibility, RecurrenceType } from '@/types'
 import { addDays, addWeeks, addMonths } from 'date-fns'
+import { useToastStore } from '@/store/toastStore'
 
 export function useTasks() {
   const { user } = useAuth()
@@ -108,7 +109,20 @@ export function useTasks() {
       completed_at: newStatus === 'done' ? now : null,
     }
 
-    await supabase.from('todo_tasks').update(updates).eq('id', task.id)
+    // Aggiornamento ottimistico
+    setTasks(prev => prev.map(t =>
+      t.id === task.id ? { ...t, status: newStatus, completed_at: newStatus === 'done' ? now : null } : t
+    ))
+
+    const { error } = await supabase.from('todo_tasks').update(updates).eq('id', task.id)
+
+    if (error) {
+      setTasks(prev => prev.map(t =>
+        t.id === task.id ? { ...t, status: task.status, completed_at: task.completed_at } : t
+      ))
+      useToastStore.getState().addToast('Errore nel cambio stato', 'error')
+      return
+    }
 
     // Add auto update entry
     await supabase.from('todo_updates').insert({
@@ -153,7 +167,7 @@ export function useTasks() {
           nextDate = addDays(baseDate, 1)
       }
 
-      await supabase.from('todo_tasks').insert({
+      const { data: newRecurringTask } = await supabase.from('todo_tasks').insert({
         title: task.title,
         description: task.description,
         priority: task.priority,
@@ -163,7 +177,17 @@ export function useTasks() {
         recurrence_type: task.recurrence_type,
         recurrence_interval: task.recurrence_interval,
         created_by: task.created_by,
-      })
+      }).select().single()
+
+      // Notifica il creatore della nuova occorrenza se diverso dall'utente corrente
+      if (newRecurringTask && task.created_by !== user.id) {
+        await supabase.from('todo_notifications').insert({
+          user_id: task.created_by,
+          task_id: newRecurringTask.id,
+          type: 'task_assigned',
+          message: `Nuova occorrenza ricorrente: "${task.title}"`,
+        })
+      }
     }
 
     await fetchTasks()
@@ -173,7 +197,20 @@ export function useTasks() {
     if (!user) return
     const supabase = createClient()
 
-    await supabase.from('todo_tasks').update({ priority: newPriority }).eq('id', task.id)
+    // Aggiornamento ottimistico
+    setTasks(prev => prev.map(t =>
+      t.id === task.id ? { ...t, priority: newPriority } : t
+    ))
+
+    const { error } = await supabase.from('todo_tasks').update({ priority: newPriority }).eq('id', task.id)
+
+    if (error) {
+      setTasks(prev => prev.map(t =>
+        t.id === task.id ? { ...t, priority: task.priority } : t
+      ))
+      useToastStore.getState().addToast('Errore nel cambio priorità', 'error')
+      return
+    }
 
     await supabase.from('todo_updates').insert({
       task_id: task.id,
@@ -188,19 +225,42 @@ export function useTasks() {
 
   const deleteTask = async (taskId: string) => {
     const supabase = createClient()
+
+    // Aggiornamento ottimistico
+    const previousTasks = tasks
+    setTasks(prev => prev.filter(t => t.id !== taskId))
+
     const { error } = await supabase.from('todo_tasks').delete().eq('id', taskId)
-    if (!error) await fetchTasks()
-    return !error
+    if (error) {
+      setTasks(previousTasks)
+      useToastStore.getState().addToast('Errore nell\'eliminazione del task', 'error')
+      return false
+    }
+    return true
   }
 
   const claimTask = async (task: TodoTask) => {
     if (!user) return
     const supabase = createClient()
+    const now = new Date().toISOString()
 
-    await supabase.from('todo_tasks').update({
+    // Aggiornamento ottimistico
+    setTasks(prev => prev.map(t =>
+      t.id === task.id ? { ...t, claimed_by: user.id, claimed_at: now } : t
+    ))
+
+    const { error } = await supabase.from('todo_tasks').update({
       claimed_by: user.id,
-      claimed_at: new Date().toISOString(),
+      claimed_at: now,
     }).eq('id', task.id)
+
+    if (error) {
+      setTasks(prev => prev.map(t =>
+        t.id === task.id ? { ...t, claimed_by: task.claimed_by, claimed_at: task.claimed_at } : t
+      ))
+      useToastStore.getState().addToast('Errore nella presa in carico', 'error')
+      return
+    }
 
     await supabase.from('todo_updates').insert({
       task_id: task.id,

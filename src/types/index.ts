@@ -5,6 +5,8 @@ export interface Profile {
   department: string | null
   avatar_url: string | null
   is_admin: boolean
+  is_direction?: boolean
+  is_purchasing?: boolean
   is_todobox_user: boolean
   created_at: string
   updated_at: string

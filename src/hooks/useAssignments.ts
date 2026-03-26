@@ -37,6 +37,22 @@ export function useAssignments() {
     fetchAssignments()
   }, [fetchAssignments])
 
+  useEffect(() => {
+    if (!user) return
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel('todo-assignments-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'todo_assignments' },
+        () => { fetchAssignments() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user, fetchAssignments])
+
   const assignTask = async (taskId: string, toUserId: string) => {
     if (!user) return false
     const supabase = createClient()

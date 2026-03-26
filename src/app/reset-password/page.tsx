@@ -2,33 +2,42 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { CheckSquare } from 'lucide-react'
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('')
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (password !== confirmPassword) {
+      setError('Le password non corrispondono.')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('La password deve essere di almeno 6 caratteri.')
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
-      setError('Credenziali non valide. Riprova.')
+      setError('Errore nell\'aggiornamento della password. Riprova.')
       setLoading(false)
       return
     }
 
     router.push('/')
-    router.refresh()
   }
 
   return (
@@ -39,10 +48,10 @@ export default function LoginPage() {
             <CheckSquare className="w-8 h-8 text-blue-500" />
             <h1 className="text-2xl font-bold text-gray-900">ToDoBox</h1>
           </div>
-          <p className="text-gray-500 text-sm">Accedi alla tua to-do list</p>
+          <p className="text-gray-500 text-sm">Imposta la nuova password</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
           {error && (
             <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
               {error}
@@ -50,23 +59,8 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="nome@azienda.com"
-            />
-          </div>
-
-          <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              Nuova password
             </label>
             <input
               id="password"
@@ -79,10 +73,19 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-xs text-blue-500 hover:text-blue-600">
-              Password dimenticata?
-            </Link>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Conferma password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="••••••••"
+            />
           </div>
 
           <button
@@ -90,16 +93,9 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Accesso in corso...' : 'Accedi'}
+            {loading ? 'Salvataggio...' : 'Salva nuova password'}
           </button>
         </form>
-
-        <p className="text-center text-sm text-gray-500 mt-4">
-          Non hai un account?{' '}
-          <Link href="/register" className="text-blue-500 hover:text-blue-600 font-medium">
-            Registrati
-          </Link>
-        </p>
       </div>
     </div>
   )
