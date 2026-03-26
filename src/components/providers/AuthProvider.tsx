@@ -110,31 +110,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (prof) {
           setProfile(prof)
         } else {
-          // Profile not found — create a fallback from user metadata
-          const fallbackProfile: Profile = {
+          // Profile not found — try to create it
+          const { error: upsertError } = await supabase.from('profiles').upsert({
             id: authUser.id,
             email: authUser.email || '',
             full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
-            department: null,
-            avatar_url: null,
-            is_admin: false,
-            is_direction: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-          setProfile(fallbackProfile)
-
-          // Try to create profile in DB (non-blocking)
-          supabase.from('profiles').upsert({
-            id: authUser.id,
-            email: authUser.email || '',
-            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
-          }).then(() => {
-            // Re-fetch the actual profile
-            fetchProfile(authUser.id).then((p) => {
-              if (mounted && p) setProfile(p)
-            })
           })
+
+          if (upsertError) {
+            // Can't create profile — zombie session, force clean logout
+            console.error('[AuthProvider] Cannot create profile, forcing logout:', upsertError.message)
+            await supabase.auth.signOut()
+            document.cookie.split(';').forEach(c => {
+              const name = c.trim().split('=')[0]
+              if (name.includes('sb-') || name.includes('supabase')) {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+              }
+            })
+            if (mounted) {
+              setUser(null)
+              setProfile(null)
+              setLoading(false)
+              clearTimeout(timeout)
+              router.push('/login')
+            }
+            return
+          }
+
+          // Re-fetch the created profile
+          const newProf = await fetchProfile(authUser.id)
+          if (mounted && newProf) {
+            setProfile(newProf)
+          } else {
+            // Still can't find profile — use fallback
+            setProfile({
+              id: authUser.id,
+              email: authUser.email || '',
+              full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
+              department: null,
+              avatar_url: null,
+              is_admin: false,
+              is_direction: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+          }
         }
       } catch (err) {
         console.error('[AuthProvider] Init exception:', err)
