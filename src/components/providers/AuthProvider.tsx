@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import type { User } from '@supabase/supabase-js'
@@ -29,7 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
   const initializedRef = useRef(false)
+
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
+  const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
 
   const signOut = useCallback(async () => {
     try {
@@ -166,6 +170,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Public routes (login, register, etc.) always render immediately
+  if (isPublicRoute) {
+    return (
+      <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+        {children}
+      </AuthContext.Provider>
+    )
+  }
+
+  // Protected routes: show spinner while auth check is in progress
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Caricamento...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Auth check finished, no user → redirect in progress, show spinner
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut }}>
