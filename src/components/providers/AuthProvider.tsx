@@ -26,10 +26,20 @@ export function useAuth() {
 
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
 
+function clearAuthCookies() {
+  document.cookie.split(';').forEach(c => {
+    const name = c.trim().split('=')[0]
+    if (name.includes('sb-') || name.includes('supabase')) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    }
+  })
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authReady, setAuthReady] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const initializedRef = useRef(false)
@@ -37,11 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))
 
   const signOut = useCallback(async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.error('[AuthProvider] Sign out error:', e)
+    }
+    clearAuthCookies()
     setUser(null)
     setProfile(null)
-    // Hard redirect — guaranteed to work
     window.location.href = '/login'
   }, [])
 
@@ -52,44 +66,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient()
     let mounted = true
 
+    const timeout = setTimeout(() => {
+      if (mounted && !authReady) {
+        setLoading(false)
+        setAuthReady(true)
+      }
+    }, 5000)
+
     const fetchProfile = async (userId: string): Promise<Profile | null> => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      if (error) {
-        console.error('[AuthProvider] Profile error:', error.message)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) {
+          console.error('[AuthProvider] Profile query error:', error.code, error.message)
+          return null
+        }
+        return data as Profile
+      } catch (err) {
+        console.error('[AuthProvider] Profile fetch exception:', err)
         return null
       }
-      return data as Profile
     }
 
     const init = async () => {
       try {
-        // Use getSession() — reads from cookie, no network call, always reliable
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Use getUser() — this validates the token server-side
+        const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
 
         if (!mounted) return
 
-        if (error || !session?.user) {
-          console.log('[AuthProvider] No session found')
+        if (userError || !authUser) {
+          console.log('[AuthProvider] No authenticated user:', userError?.message)
+          // Clear stale cookies and redirect
+          clearAuthCookies()
           if (!isPublicRoute) {
             window.location.href = '/login'
           }
-          setLoading(false)
           return
         }
 
-        const authUser = session.user
+        // User is authenticated
         setUser(authUser)
 
+        // Fetch profile
         const prof = await fetchProfile(authUser.id)
+
         if (!mounted) return
 
         if (prof) {
           setProfile(prof)
         } else {
+          // Fallback profile from user metadata
           setProfile({
             id: authUser.id,
             email: authUser.email || '',
@@ -103,41 +134,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
         }
       } catch (err) {
-        console.error('[AuthProvider] Init error:', err)
+        console.error('[AuthProvider] Init exception:', err)
         if (!isPublicRoute) {
           window.location.href = '/login'
         }
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted) {
+          setLoading(false)
+          setAuthReady(true)
+          clearTimeout(timeout)
+        }
       }
     }
 
-    init()
+    // IMPORTANT: Register listener AFTER init completes to avoid race conditions
+    init().then(() => {
+      if (!mounted) return
 
-    // Listen for auth changes (login/logout from other tabs, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return
 
-        if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
-          setUser(null)
-          setProfile(null)
-          window.location.href = '/login'
-        } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-          setUser(session.user)
-          const prof = await fetchProfile(session.user.id)
-          if (mounted && prof) setProfile(prof)
+          if (event === 'SIGNED_OUT') {
+            setUser(null)
+            setProfile(null)
+            window.location.href = '/login'
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            setUser(session.user)
+          } else if (event === 'SIGNED_IN' && session?.user) {
+            // Only handle if user changed (e.g., login from another tab)
+            setUser(prev => {
+              if (prev?.id !== session.user.id) {
+                fetchProfile(session.user.id).then(prof => {
+                  if (mounted && prof) setProfile(prof)
+                })
+                return session.user
+              }
+              return prev
+            })
+          }
         }
+      )
+
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe()
       }
-    )
+    })
 
     return () => {
       mounted = false
-      subscription.unsubscribe()
+      clearTimeout(timeout)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Public routes: always render
+  // Public routes always render immediately
   if (isPublicRoute) {
     return (
       <AuthContext.Provider value={{ user, profile, loading, signOut }}>
@@ -146,8 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Protected routes: show spinner until auth resolves
-  if (loading) {
+  // Protected routes: block render until auth check completes
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -158,8 +209,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // No user after auth check → redirect in progress
   if (!user) {
-    return null // redirect already triggered
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
