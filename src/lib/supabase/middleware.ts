@@ -32,19 +32,13 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  const { data: { user }, error } = await supabase.auth.getUser()
+  // getUser() validates the token server-side — this also refreshes the session cookie
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || error) {
-    // Clear any stale auth cookies server-side before redirecting
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    const redirectResponse = NextResponse.redirect(url)
-    request.cookies.getAll().forEach(cookie => {
-      if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
-        redirectResponse.cookies.delete(cookie.name)
-      }
-    })
-    return redirectResponse
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse
