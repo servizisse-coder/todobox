@@ -101,8 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (userError || !authUser) {
           console.log('[AuthProvider] No authenticated user:', userError?.message)
-          // Clear stale cookies and redirect
-          clearAuthCookies()
+          // Don't clear cookies — middleware handles that server-side
+          // Just redirect if on a protected route
           if (!isPublicRoute) {
             window.location.href = '/login'
           }
