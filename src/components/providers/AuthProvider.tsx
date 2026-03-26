@@ -84,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[AuthProvider] No authenticated user:', userError?.message)
           setLoading(false)
           clearTimeout(timeout)
+          router.push('/login')
           return
         }
 
