@@ -24,16 +24,27 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
+const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
+
+function clearAuthCookies() {
+  document.cookie.split(';').forEach(c => {
+    const name = c.trim().split('=')[0]
+    if (name.includes('sb-') || name.includes('supabase')) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    }
+  })
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authReady, setAuthReady] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const initializedRef = useRef(false)
 
-  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
-  const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))
 
   const signOut = useCallback(async () => {
     try {
@@ -42,17 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('[AuthProvider] Sign out error:', e)
     }
-    // Force-clear any stale auth cookies as safety net
-    document.cookie.split(';').forEach(c => {
-      const name = c.trim().split('=')[0]
-      if (name.includes('sb-') || name.includes('supabase')) {
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-      }
-    })
+    clearAuthCookies()
     setUser(null)
     setProfile(null)
-    router.push('/login')
-  }, [router])
+    window.location.href = '/login'
+  }, [])
 
   useEffect(() => {
     if (initializedRef.current) return
@@ -62,7 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
 
     const timeout = setTimeout(() => {
-      if (mounted) setLoading(false)
+      if (mounted && !authReady) {
+        setLoading(false)
+        setAuthReady(true)
+      }
     }, 5000)
 
     const fetchProfile = async (userId: string): Promise<Profile | null> => {
@@ -86,23 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const init = async () => {
       try {
-        // 1. Get authenticated user via API call
+        // Use getUser() — this validates the token server-side
         const { data: { user: authUser }, error: userError } = await supabase.auth.getUser()
 
         if (!mounted) return
 
         if (userError || !authUser) {
           console.log('[AuthProvider] No authenticated user:', userError?.message)
-          setLoading(false)
-          clearTimeout(timeout)
-          router.push('/login')
+          // Clear stale cookies and redirect
+          clearAuthCookies()
+          if (!isPublicRoute) {
+            window.location.href = '/login'
+          }
           return
         }
 
-        // 2. User is authenticated — set immediately
+        // User is authenticated
         setUser(authUser)
 
-        // 3. Fetch profile
+        // Fetch profile
         const prof = await fetchProfile(authUser.id)
 
         if (!mounted) return
@@ -110,93 +120,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (prof) {
           setProfile(prof)
         } else {
-          // Profile not found — try to create it
-          const { error: upsertError } = await supabase.from('profiles').upsert({
+          // Fallback profile from user metadata
+          setProfile({
             id: authUser.id,
             email: authUser.email || '',
             full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
+            department: null,
+            avatar_url: null,
+            is_admin: false,
+            is_direction: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
-
-          if (upsertError) {
-            // Can't create profile — zombie session, force clean logout
-            console.error('[AuthProvider] Cannot create profile, forcing logout:', upsertError.message)
-            await supabase.auth.signOut()
-            document.cookie.split(';').forEach(c => {
-              const name = c.trim().split('=')[0]
-              if (name.includes('sb-') || name.includes('supabase')) {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-              }
-            })
-            if (mounted) {
-              setUser(null)
-              setProfile(null)
-              setLoading(false)
-              clearTimeout(timeout)
-              router.push('/login')
-            }
-            return
-          }
-
-          // Re-fetch the created profile
-          const newProf = await fetchProfile(authUser.id)
-          if (mounted && newProf) {
-            setProfile(newProf)
-          } else {
-            // Still can't find profile — use fallback
-            setProfile({
-              id: authUser.id,
-              email: authUser.email || '',
-              full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Utente',
-              department: null,
-              avatar_url: null,
-              is_admin: false,
-              is_direction: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-          }
         }
       } catch (err) {
         console.error('[AuthProvider] Init exception:', err)
+        if (!isPublicRoute) {
+          window.location.href = '/login'
+        }
       } finally {
         if (mounted) {
           setLoading(false)
+          setAuthReady(true)
           clearTimeout(timeout)
         }
       }
     }
 
-    init()
+    // IMPORTANT: Register listener AFTER init completes to avoid race conditions
+    init().then(() => {
+      if (!mounted) return
 
-    // Listen for future auth changes (sign in, sign out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          const prof = await fetchProfile(session.user.id)
-          if (mounted && prof) setProfile(prof)
-          setLoading(false)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setProfile(null)
-          setLoading(false)
-          router.push('/login')
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user)
+          if (event === 'SIGNED_OUT') {
+            setUser(null)
+            setProfile(null)
+            window.location.href = '/login'
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            setUser(session.user)
+          } else if (event === 'SIGNED_IN' && session?.user) {
+            // Only handle if user changed (e.g., login from another tab)
+            setUser(prev => {
+              if (prev?.id !== session.user.id) {
+                fetchProfile(session.user.id).then(prof => {
+                  if (mounted && prof) setProfile(prof)
+                })
+                return session.user
+              }
+              return prev
+            })
+          }
         }
+      )
+
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe()
       }
-    )
+    })
 
     return () => {
       mounted = false
       clearTimeout(timeout)
-      subscription.unsubscribe()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Public routes (login, register, etc.) always render immediately
+  // Public routes always render immediately
   if (isPublicRoute) {
     return (
       <AuthContext.Provider value={{ user, profile, loading, signOut }}>
@@ -205,8 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Protected routes: show spinner while auth check is in progress
-  if (loading) {
+  // Protected routes: block render until auth check completes
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -217,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Auth check finished, no user → redirect in progress, show spinner
+  // No user after auth check → redirect in progress
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
