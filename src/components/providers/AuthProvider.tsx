@@ -42,6 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('[AuthProvider] Sign out error:', e)
     }
+    // Force-clear any stale auth cookies as safety net
+    document.cookie.split(';').forEach(c => {
+      const name = c.trim().split('=')[0]
+      if (name.includes('sb-') || name.includes('supabase')) {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+      }
+    })
     setUser(null)
     setProfile(null)
     router.push('/login')
@@ -112,8 +119,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             avatar_url: null,
             is_admin: false,
             is_direction: false,
-            is_purchasing: false,
-            is_todobox_user: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
