@@ -160,11 +160,13 @@ export function useAssignments() {
       })
     }
 
-    // Notify sender
-    const taskObj = assignment.task
-    const taskTitle = taskObj && typeof taskObj === 'object' && 'title' in taskObj
-      ? (taskObj as { title: string }).title
-      : 'senza titolo'
+    // Get task title AFTER assigned_to is set (so RLS allows the SELECT)
+    const { data: taskData } = await supabase
+      .from('todo_tasks')
+      .select('title')
+      .eq('id', assignment.task_id)
+      .single()
+    const taskTitle = taskData?.title || 'senza titolo'
 
     await supabase.from('todo_notifications').insert({
       user_id: assignment.from_user,
