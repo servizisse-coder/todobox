@@ -135,15 +135,19 @@ export function useAssignments() {
       })
     }
 
-    // Notify sender
-    const taskData = assignment.task as { title?: string } | null
+    // Notify sender - get task title safely
+    const taskObj = assignment.task
+    const taskTitle = taskObj && typeof taskObj === 'object' && 'title' in taskObj
+      ? (taskObj as { title: string }).title
+      : 'senza titolo'
+
     await supabase.from('todo_notifications').insert({
       user_id: assignment.from_user,
       task_id: assignment.task_id,
       type: accept ? 'task_accepted' : 'task_declined',
       message: accept
-        ? `Il task "${taskData?.title}" è stato accettato`
-        : `Il task "${taskData?.title}" è stato rifiutato${declineReason ? `: ${declineReason}` : ''}`,
+        ? `Il task "${taskTitle}" è stato accettato`
+        : `Il task "${taskTitle}" è stato rifiutato${declineReason ? `: ${declineReason}` : ''}`,
     })
 
     await fetchAssignments()
