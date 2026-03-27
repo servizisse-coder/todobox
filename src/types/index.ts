@@ -109,5 +109,8 @@ export interface TaskFilters {
   role: string | 'all'
   sortBy: SortBy
   urgentOnly: boolean
+  visibility: 'all' | 'private' | 'assigned' | 'public'
+  referent: string
+  company: string
   search: string
 }

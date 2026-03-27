@@ -15,6 +15,9 @@ const defaultFilters: TaskFilters = {
   role: 'all',
   sortBy: 'urgency',
   urgentOnly: false,
+  visibility: 'all',
+  referent: 'all',
+  company: 'all',
   search: '',
 }
 
