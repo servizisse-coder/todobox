@@ -17,7 +17,7 @@ const assignmentStatusConfig: Record<string, { label: string; color: string }> =
 }
 
 export default function SentPage() {
-  const { assignedByMe, loading } = useAssignments()
+  const { assignedByMe, loading, revokeAssignment } = useAssignments()
 
   return (
     <AppShell>
@@ -74,6 +74,20 @@ export default function SentPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusConf.color}`}>
                         {statusConf.label}
                       </span>
+                      {(assignment.status === 'pending' || assignment.status === 'accepted') && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (confirm('Revocare questa assegnazione?')) {
+                              revokeAssignment(assignment.id)
+                            }
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50"
+                        >
+                          Revoca
+                        </button>
+                      )}
                     </div>
                   </div>
 

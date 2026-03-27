@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { useToastStore } from '@/store/toastStore'
 import type { TodoAssignment } from '@/types'
 
 export function useAssignments() {
@@ -57,6 +58,20 @@ export function useAssignments() {
     if (!user) return false
     const supabase = createClient()
 
+    // BUG 2: Check for existing active assignment
+    const { data: existing } = await supabase
+      .from('todo_assignments')
+      .select('id')
+      .eq('task_id', taskId)
+      .eq('to_user', toUserId)
+      .in('status', ['pending', 'accepted'])
+      .maybeSingle()
+
+    if (existing) {
+      useToastStore.getState().addToast('Task già assegnato a questo utente', 'info')
+      return false
+    }
+
     // Create assignment
     const { error: assignError } = await supabase.from('todo_assignments').insert({
       task_id: taskId,
@@ -64,7 +79,10 @@ export function useAssignments() {
       to_user: toUserId,
     })
 
-    if (assignError) return false
+    if (assignError) {
+      useToastStore.getState().addToast('Errore nell\'assegnazione. Riprova.', 'error')
+      return false
+    }
 
     // Update task
     await supabase.from('todo_tasks').update({
@@ -79,8 +97,11 @@ export function useAssignments() {
       update_type: 'assigned',
     })
 
-    // Get task title for notification
-    const { data: task } = await supabase.from('todo_tasks').select('title').eq('id', taskId).single()
+    // Get recipient name + task title for feedback
+    const [{ data: recipient }, { data: task }] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', toUserId).single(),
+      supabase.from('todo_tasks').select('title').eq('id', taskId).single(),
+    ])
 
     // Notify recipient
     await supabase.from('todo_notifications').insert({
@@ -89,6 +110,12 @@ export function useAssignments() {
       type: 'task_assigned',
       message: `Ti è stato assegnato il task "${task?.title || 'Nuovo task'}"`,
     })
+
+    // BUG 2: Toast feedback
+    useToastStore.getState().addToast(
+      `Task assegnato a ${recipient?.full_name || 'utente'}`,
+      'success'
+    )
 
     await fetchAssignments()
     return true
@@ -114,19 +141,17 @@ export function useAssignments() {
     }).eq('id', assignmentId)
 
     if (accept) {
-      // Update task
+      // BUG 1 FIX: Update task with assigned_to — now works thanks to new RLS policy
       await supabase.from('todo_tasks').update({
         assigned_to: user.id,
       }).eq('id', assignment.task_id)
 
-      // Create update
       await supabase.from('todo_updates').insert({
         task_id: assignment.task_id,
         user_id: user.id,
         update_type: 'accepted',
       })
     } else {
-      // Create update
       await supabase.from('todo_updates').insert({
         task_id: assignment.task_id,
         user_id: user.id,
@@ -135,7 +160,7 @@ export function useAssignments() {
       })
     }
 
-    // Notify sender - get task title safely
+    // Notify sender
     const taskObj = assignment.task
     const taskTitle = taskObj && typeof taskObj === 'object' && 'title' in taskObj
       ? (taskObj as { title: string }).title
@@ -154,12 +179,71 @@ export function useAssignments() {
     return true
   }
 
+  // BUG 2: Revoke assignment
+  const revokeAssignment = async (assignmentId: string) => {
+    if (!user) return false
+    const supabase = createClient()
+
+    const { data: assignment } = await supabase
+      .from('todo_assignments')
+      .select('*, task:todo_tasks(*)')
+      .eq('id', assignmentId)
+      .single()
+
+    if (!assignment || assignment.from_user !== user.id) return false
+
+    const taskId = assignment.task_id
+    const toUserId = assignment.to_user
+
+    // Delete the assignment
+    await supabase.from('todo_assignments').delete().eq('id', assignmentId)
+
+    // Check if there are remaining active assignments for this task
+    const { data: remaining } = await supabase
+      .from('todo_assignments')
+      .select('id')
+      .eq('task_id', taskId)
+      .in('status', ['pending', 'accepted'])
+
+    if (!remaining || remaining.length === 0) {
+      // No more active assignments — revert task to private
+      await supabase.from('todo_tasks').update({
+        visibility: 'private',
+        assigned_to: null,
+        assigned_by: null,
+      }).eq('id', taskId)
+    } else if (assignment.status === 'accepted') {
+      // Revoked was the accepted one — clear assigned_to
+      await supabase.from('todo_tasks').update({
+        assigned_to: null,
+      }).eq('id', taskId)
+    }
+
+    // Notify the recipient
+    const taskObj = assignment.task
+    const taskTitle = taskObj && typeof taskObj === 'object' && 'title' in taskObj
+      ? (taskObj as { title: string }).title
+      : 'senza titolo'
+
+    await supabase.from('todo_notifications').insert({
+      user_id: toUserId,
+      task_id: taskId,
+      type: 'task_updated',
+      message: `L'assegnazione del task "${taskTitle}" è stata revocata`,
+    })
+
+    useToastStore.getState().addToast('Assegnazione revocata', 'success')
+    await fetchAssignments()
+    return true
+  }
+
   return {
     assignedToMe,
     assignedByMe,
     loading,
     assignTask,
     respondToAssignment,
+    revokeAssignment,
     refetch: fetchAssignments,
   }
 }

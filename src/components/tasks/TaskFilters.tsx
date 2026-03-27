@@ -1,9 +1,9 @@
 'use client'
 
-import { Search, X } from 'lucide-react'
+import { Search, X, ArrowUpDown } from 'lucide-react'
 import { useFilterStore } from '@/store/filterStore'
 import { useRoles } from '@/hooks/useRoles'
-import type { TaskStatus, TaskPriority } from '@/types'
+import type { TaskStatus, TaskPriority, SortBy } from '@/types'
 
 export function TaskFilters() {
   const { filters, setFilter, resetFilters } = useFilterStore()
@@ -79,6 +79,21 @@ export function TaskFilters() {
             ))}
           </select>
         )}
+
+        <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
+          <ArrowUpDown className="w-3 h-3 text-gray-400" />
+          <select
+            value={filters.sortBy}
+            onChange={(e) => setFilter('sortBy', e.target.value as SortBy)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="urgency">Urgenza</option>
+            <option value="due_date">Scadenza</option>
+            <option value="priority">Priorità</option>
+            <option value="created">Più recenti</option>
+            <option value="role">Per ruolo</option>
+          </select>
+        </div>
 
         {hasActiveFilters && (
           <button

@@ -81,12 +81,35 @@ export default function MyTasksPage() {
       result = result.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
     }
 
-    // Sort: done last, then by priority
+    // Sort: done last, then by selected sort
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+
     return result.sort((a, b) => {
+      // Done tasks always last
       if (a.status === 'done' && b.status !== 'done') return 1
       if (a.status !== 'done' && b.status === 'done') return -1
-      const priorityOrder = { high: 0, medium: 1, low: 2 }
-      return priorityOrder[a.priority] - priorityOrder[b.priority]
+
+      switch (filters.sortBy) {
+        case 'due_date': {
+          if (!a.due_date && !b.due_date) return 0
+          if (!a.due_date) return 1
+          if (!b.due_date) return -1
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+        }
+        case 'priority':
+          return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1)
+        case 'created':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'role': {
+          const aRole = a.role?.name || 'zzz'
+          const bRole = b.role?.name || 'zzz'
+          if (aRole !== bRole) return aRole.localeCompare(bRole)
+          return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1)
+        }
+        case 'urgency':
+        default:
+          return (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1)
+      }
     })
   }, [tasks, filters, user])
 

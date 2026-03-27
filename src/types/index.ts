@@ -99,11 +99,14 @@ export interface TodoNotification {
   task?: TodoTask
 }
 
+export type SortBy = 'urgency' | 'due_date' | 'priority' | 'created' | 'role'
+
 export interface TaskFilters {
   status: TaskStatus | 'all'
   priority: TaskPriority | 'all'
   type: 'all' | 'personal' | 'assigned_to_me' | 'assigned_by_me' | 'public'
   dueDate: 'all' | 'today' | 'this_week' | 'overdue' | 'no_date'
   role: string | 'all'
+  sortBy: SortBy
   search: string
 }
