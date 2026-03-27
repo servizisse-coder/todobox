@@ -9,6 +9,8 @@ import {
   Send,
   Globe,
   Bell,
+  BarChart3,
+  Settings,
 } from 'lucide-react'
 
 const navItems = [
@@ -18,6 +20,8 @@ const navItems = [
   { href: '/sent', label: 'Assegnati da me', icon: Send },
   { href: '/public', label: 'Pubblici', icon: Globe },
   { href: '/notifications', label: 'Notifiche', icon: Bell },
+  { href: '/review', label: 'Revisione', icon: BarChart3 },
+  { href: '/settings', label: 'Impostazioni', icon: Settings },
 ]
 
 interface SidebarProps {

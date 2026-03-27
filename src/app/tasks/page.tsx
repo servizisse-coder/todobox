@@ -9,12 +9,14 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useTasks } from '@/hooks/useTasks'
+import { useRoles } from '@/hooks/useRoles'
 import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
 
 export default function MyTasksPage() {
   const { user } = useAuth()
   const { tasks, loading, createTask, toggleStatus, updatePriority, deleteTask } = useTasks()
+  const { roles } = useRoles()
   const { filters } = useFilterStore()
 
   const filteredTasks = useMemo(() => {
@@ -71,6 +73,9 @@ export default function MyTasksPage() {
           break
       }
     }
+    if (filters.role !== 'all') {
+      result = result.filter(t => t.role_id === filters.role)
+    }
     if (filters.search) {
       const q = filters.search.toLowerCase()
       result = result.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
@@ -85,10 +90,11 @@ export default function MyTasksPage() {
     })
   }, [tasks, filters, user])
 
-  const handleQuickAdd = async (title: string, dueDate?: string) => {
+  const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string) => {
     await createTask({
       title,
-      due_date: dueDate ? new Date(dueDate).toISOString() : null,
+      role_id: roleId || null,
+      due_date: dueDate ? new Date(dueDate + 'T12:00:00').toISOString() : null,
     })
   }
 
@@ -101,7 +107,7 @@ export default function MyTasksPage() {
           <span className="text-sm text-gray-400 ml-auto">{filteredTasks.length} task</span>
         </div>
 
-        <QuickAdd onAdd={handleQuickAdd} />
+        <QuickAdd onAdd={handleQuickAdd} roles={roles} />
         <TaskFilters />
 
         {loading ? (

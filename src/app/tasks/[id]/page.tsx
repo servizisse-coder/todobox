@@ -11,6 +11,7 @@ import { PriorityBadge } from '@/components/tasks/PriorityBadge'
 import { StatusBadge } from '@/components/tasks/StatusBadge'
 import { DueDateBadge } from '@/components/tasks/DueDateBadge'
 import { RecurringBadge } from '@/components/tasks/RecurringBadge'
+import { RoleBadge } from '@/components/tasks/RoleBadge'
 import { TaskTimeline } from '@/components/tasks/TaskTimeline'
 import { AssignTaskModal } from '@/components/tasks/AssignTaskModal'
 import { useTasks } from '@/hooks/useTasks'
@@ -145,6 +146,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           {/* Badges */}
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={task.status} />
+            {task.role && <RoleBadge role={task.role} size="md" />}
             {task.due_date && <DueDateBadge dueDate={task.due_date} completed={task.status === 'done'} />}
             {task.is_recurring && task.recurrence_type && (
               <RecurringBadge recurrenceType={task.recurrence_type} interval={task.recurrence_interval} />
@@ -168,6 +170,22 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   {s === 'todo' ? 'Da fare' : s === 'in_progress' ? 'In corso' : 'Completato'}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Referent & Company */}
+          {(task.referent || task.company) && (
+            <div className="flex items-center gap-4 text-sm">
+              {task.referent && (
+                <span className="text-gray-600">
+                  <span className="text-gray-400">Referente:</span> {task.referent}
+                </span>
+              )}
+              {task.company && (
+                <span className="text-gray-600">
+                  <span className="text-gray-400">Azienda:</span> {task.company}
+                </span>
+              )}
             </div>
           )}
 

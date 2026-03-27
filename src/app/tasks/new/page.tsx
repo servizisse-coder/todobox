@@ -9,6 +9,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { AssignTaskModal } from '@/components/tasks/AssignTaskModal'
 import { useAssignments } from '@/hooks/useAssignments'
+import { useRoles } from '@/hooks/useRoles'
+import { useTasks } from '@/hooks/useTasks'
+import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
 import type { TaskPriority, TaskVisibility, RecurrenceType, TodoTask } from '@/types'
 
 export default function NewTaskPageWrapper() {
@@ -25,12 +28,21 @@ function NewTaskPage() {
   const editId = searchParams.get('edit')
   const { user } = useAuth()
   const { assignTask } = useAssignments()
+  const { roles } = useRoles()
+  const { tasks: allTasks } = useTasks()
+
+  // Derive autocomplete suggestions from existing tasks
+  const referentSuggestions = [...new Set(allTasks.filter(t => t.referent).map(t => t.referent!))].sort()
+  const companySuggestions = [...new Set(allTasks.filter(t => t.company).map(t => t.company!))].sort()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [visibility, setVisibility] = useState<TaskVisibility>('private')
   const [dueDate, setDueDate] = useState('')
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
+  const [referent, setReferent] = useState('')
+  const [company, setCompany] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('daily')
   const [recurrenceInterval, setRecurrenceInterval] = useState(1)
@@ -55,6 +67,9 @@ function NewTaskPage() {
         setIsRecurring(task.is_recurring)
         if (task.recurrence_type) setRecurrenceType(task.recurrence_type)
         if (task.recurrence_interval) setRecurrenceInterval(task.recurrence_interval)
+        if (task.role_id) setSelectedRoleId(task.role_id)
+        if (task.referent) setReferent(task.referent)
+        if (task.company) setCompany(task.company)
       }
     }
     load()
@@ -72,10 +87,13 @@ function NewTaskPage() {
       description: description.trim() || null,
       priority,
       visibility,
-      due_date: dueDate ? new Date(dueDate).toISOString() : null,
+      due_date: dueDate ? new Date(dueDate + 'T12:00:00').toISOString() : null,
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : null,
       recurrence_interval: isRecurring && recurrenceType === 'custom' ? recurrenceInterval : null,
+      role_id: selectedRoleId || null,
+      referent: referent.trim() || null,
+      company: company.trim() || null,
     }
 
     if (editId) {
@@ -169,6 +187,59 @@ function NewTaskPage() {
               ))}
             </div>
           </div>
+
+          {/* Role */}
+          {roles.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRoleId(null)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                    !selectedRoleId
+                      ? 'bg-gray-100 text-gray-700 border-gray-300'
+                      : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  Nessuno
+                </button>
+                {roles.map((role) => (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => setSelectedRoleId(role.id)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                      selectedRoleId === role.id
+                        ? 'text-white'
+                        : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                    }`}
+                    style={selectedRoleId === role.id ? { backgroundColor: role.color } : undefined}
+                  >
+                    {role.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Referent */}
+          <AutocompleteInput
+            value={referent}
+            onChange={setReferent}
+            suggestions={referentSuggestions}
+            label="Referente"
+            placeholder="Chi ha assegnato o attende il risultato?"
+          />
+
+          {/* Company */}
+          <AutocompleteInput
+            value={company}
+            onChange={setCompany}
+            suggestions={companySuggestions}
+            label="Azienda"
+            placeholder="Azienda associata (opzionale)"
+          />
 
           {/* Visibility */}
           <div>

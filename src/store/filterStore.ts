@@ -12,6 +12,7 @@ const defaultFilters: TaskFilters = {
   priority: 'all',
   type: 'all',
   dueDate: 'all',
+  role: 'all',
   search: '',
 }
 

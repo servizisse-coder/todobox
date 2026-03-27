@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
-import type { TodoTask, TaskStatus, TaskPriority, TaskVisibility, RecurrenceType } from '@/types'
+import type { TodoTask, TaskStatus, TaskPriority, TaskVisibility, RecurrenceType, TodoRole } from '@/types'
 import { addDays, addWeeks, addMonths } from 'date-fns'
 import { useToastStore } from '@/store/toastStore'
 
@@ -18,7 +18,7 @@ export function useTasks() {
 
     const { data, error } = await supabase
       .from('todo_tasks')
-      .select('*, creator:profiles!todo_tasks_created_by_fkey(*), assignee:profiles!todo_tasks_assigned_to_fkey(*), assigner:profiles!todo_tasks_assigned_by_fkey(*), claimer:profiles!todo_tasks_claimed_by_fkey(*)')
+      .select('*, role:todo_roles(*), creator:profiles!todo_tasks_created_by_fkey(*), assignee:profiles!todo_tasks_assigned_to_fkey(*), assigner:profiles!todo_tasks_assigned_by_fkey(*), claimer:profiles!todo_tasks_claimed_by_fkey(*)')
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -56,6 +56,9 @@ export function useTasks() {
     is_recurring?: boolean
     recurrence_type?: RecurrenceType | null
     recurrence_interval?: number | null
+    role_id?: string | null
+    referent?: string | null
+    company?: string | null
   }) => {
     if (!user) return null
     const supabase = createClient()
@@ -71,6 +74,9 @@ export function useTasks() {
         is_recurring: data.is_recurring || false,
         recurrence_type: data.recurrence_type || null,
         recurrence_interval: data.recurrence_interval || null,
+        role_id: data.role_id || null,
+        referent: data.referent || null,
+        company: data.company || null,
         created_by: user.id,
       })
       .select()
@@ -176,6 +182,9 @@ export function useTasks() {
         is_recurring: true,
         recurrence_type: task.recurrence_type,
         recurrence_interval: task.recurrence_interval,
+        role_id: task.role_id,
+        referent: task.referent,
+        company: task.company,
         created_by: task.created_by,
       }).select().single()
 

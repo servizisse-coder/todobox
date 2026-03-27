@@ -2,15 +2,18 @@
 
 import { Search, X } from 'lucide-react'
 import { useFilterStore } from '@/store/filterStore'
+import { useRoles } from '@/hooks/useRoles'
 import type { TaskStatus, TaskPriority } from '@/types'
 
 export function TaskFilters() {
   const { filters, setFilter, resetFilters } = useFilterStore()
+  const { roles } = useRoles()
 
   const hasActiveFilters =
     filters.status !== 'all' ||
     filters.priority !== 'all' ||
     filters.dueDate !== 'all' ||
+    filters.role !== 'all' ||
     filters.search !== ''
 
   return (
@@ -63,6 +66,19 @@ export function TaskFilters() {
           <option value="overdue">Scaduti</option>
           <option value="no_date">Senza scadenza</option>
         </select>
+
+        {roles.length > 0 && (
+          <select
+            value={filters.role}
+            onChange={(e) => setFilter('role', e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tutti i ruoli</option>
+            {roles.map(r => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+        )}
 
         {hasActiveFilters && (
           <button

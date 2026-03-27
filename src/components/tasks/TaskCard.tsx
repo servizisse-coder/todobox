@@ -7,6 +7,7 @@ import type { TodoTask, TaskPriority } from '@/types'
 import { PriorityBadge } from './PriorityBadge'
 import { DueDateBadge } from './DueDateBadge'
 import { RecurringBadge } from './RecurringBadge'
+import { RoleBadge } from './RoleBadge'
 import { useAuth } from '@/components/providers/AuthProvider'
 
 interface TaskCardProps {
@@ -56,6 +57,9 @@ export function TaskCard({ task, onToggle, onPriorityChange, onDelete, showAssig
 
           {/* Meta row */}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {task.role && (
+              <RoleBadge role={task.role} />
+            )}
             {task.due_date && (
               <DueDateBadge dueDate={task.due_date} completed={isDone} />
             )}
