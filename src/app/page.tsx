@@ -56,13 +56,15 @@ export default function TodayPage() {
   const { tasks, loading, createTask, toggleStatus, updatePriority, deleteTask } = useTasks()
   const { roles } = useRoles()
 
+  // Work queue: tasks I need to do personally (exclude delegated)
   const myTasks = useMemo(() => {
     if (!user) return []
-    return tasks.filter(t =>
-      t.created_by === user.id ||
-      t.assigned_to === user.id ||
-      t.claimed_by === user.id
-    )
+    return tasks.filter(t => {
+      // Delegated: I created it but someone else is assigned → exclude
+      if (t.created_by === user.id && t.assigned_to && t.assigned_to !== user.id) return false
+      // Include: my own tasks, tasks assigned to me, tasks I claimed
+      return t.created_by === user.id || t.assigned_to === user.id || t.claimed_by === user.id
+    })
   }, [tasks, user])
 
   // Active tasks grouped by urgency
