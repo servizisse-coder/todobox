@@ -108,5 +108,6 @@ export interface TaskFilters {
   dueDate: 'all' | 'today' | 'this_week' | 'overdue' | 'no_date'
   role: string | 'all'
   sortBy: SortBy
+  urgentOnly: boolean
   search: string
 }

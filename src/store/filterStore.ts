@@ -14,6 +14,7 @@ const defaultFilters: TaskFilters = {
   dueDate: 'all',
   role: 'all',
   sortBy: 'urgency',
+  urgentOnly: false,
   search: '',
 }
 
