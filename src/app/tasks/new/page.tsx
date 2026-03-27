@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, UserPlus, X, Search } from 'lucide-react'
 import Link from 'next/link'
 import { AppShell } from '@/components/layout/AppShell'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +12,7 @@ import { useAssignments } from '@/hooks/useAssignments'
 import { useRoles } from '@/hooks/useRoles'
 import { useTasks } from '@/hooks/useTasks'
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput'
-import type { TaskPriority, TaskVisibility, RecurrenceType, TodoTask } from '@/types'
+import type { TaskPriority, TaskVisibility, RecurrenceType, TodoTask, Profile } from '@/types'
 
 export default function NewTaskPageWrapper() {
   return (
@@ -49,6 +49,11 @@ function NewTaskPage() {
   const [saving, setSaving] = useState(false)
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [savedTaskId, setSavedTaskId] = useState<string | null>(null)
+  const [showAssignField, setShowAssignField] = useState(false)
+  const [assignToUser, setAssignToUser] = useState<Profile | null>(null)
+  const [assignSearch, setAssignSearch] = useState('')
+  const [assignUsers, setAssignUsers] = useState<Profile[]>([])
+  const [assignLoading, setAssignLoading] = useState(false)
 
   // Load existing task for edit
   useEffect(() => {
@@ -75,6 +80,24 @@ function NewTaskPage() {
     load()
   }, [editId, user])
 
+  // Search users for inline assignment
+  useEffect(() => {
+    if (!showAssignField || !user) return
+    const searchUsers = async () => {
+      setAssignLoading(true)
+      const supabase = createClient()
+      let query = supabase.from('profiles').select('*').neq('id', user.id).order('full_name').limit(10)
+      if (assignSearch.trim()) {
+        query = query.ilike('full_name', `%${assignSearch.trim()}%`)
+      }
+      const { data } = await query
+      if (data) setAssignUsers(data as Profile[])
+      setAssignLoading(false)
+    }
+    const debounce = setTimeout(searchUsers, 300)
+    return () => clearTimeout(debounce)
+  }, [showAssignField, assignSearch, user])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !user || saving) return
@@ -82,11 +105,14 @@ function NewTaskPage() {
     setSaving(true)
     const supabase = createClient()
 
+    // If assigning inline, set visibility to 'assigned'
+    const effectiveVisibility = assignToUser ? 'assigned' : visibility
+
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
       priority,
-      visibility,
+      visibility: effectiveVisibility,
       due_date: dueDate ? new Date(dueDate + 'T12:00:00').toISOString() : null,
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : null,
@@ -94,6 +120,7 @@ function NewTaskPage() {
       role_id: selectedRoleId || null,
       referent: referent.trim() || null,
       company: company.trim() || null,
+      ...(assignToUser ? { assigned_by: user.id, assigned_to: assignToUser.id } : {}),
     }
 
     if (editId) {
@@ -107,13 +134,18 @@ function NewTaskPage() {
         .single()
 
       if (data) {
-        setSavedTaskId(data.id)
-        if (visibility === 'assigned') {
+        // If inline assignment, create the assignment record + notification
+        if (assignToUser) {
+          await assignTask(data.id, assignToUser.id)
+          router.push('/sent')
+        } else if (visibility === 'assigned') {
+          setSavedTaskId(data.id)
           setSaving(false)
           setAssignModalOpen(true)
           return
+        } else {
+          router.push('/tasks')
         }
-        router.push('/tasks')
       }
     }
     setSaving(false)
@@ -241,30 +273,103 @@ function NewTaskPage() {
             placeholder="Azienda associata (opzionale)"
           />
 
-          {/* Visibility */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Visibilità</label>
-            <div className="flex gap-2">
-              {[
-                { value: 'private' as TaskVisibility, label: 'Privato' },
-                { value: 'public' as TaskVisibility, label: 'Pubblico' },
-                { value: 'assigned' as TaskVisibility, label: 'Assegna' },
-              ].map((v) => (
+          {/* Assign to (collapsible) */}
+          {!editId && (
+            <div>
+              {!showAssignField && !assignToUser ? (
                 <button
-                  key={v.value}
                   type="button"
-                  onClick={() => setVisibility(v.value)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                    visibility === v.value
-                      ? 'bg-blue-50 text-blue-600 border-blue-200'
-                      : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                  }`}
+                  onClick={() => setShowAssignField(true)}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors"
                 >
-                  {v.label}
+                  <UserPlus className="w-4 h-4" />
+                  Assegna a qualcuno
                 </button>
-              ))}
+              ) : assignToUser ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assegnato a</label>
+                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-medium">
+                      {assignToUser.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <span className="text-sm font-medium text-blue-700 flex-1">{assignToUser.full_name}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setAssignToUser(null); setShowAssignField(false); setAssignSearch('') }}
+                      className="p-0.5 rounded hover:bg-blue-100"
+                    >
+                      <X className="w-3.5 h-3.5 text-blue-500" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assegna a</label>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={assignSearch}
+                      onChange={(e) => setAssignSearch(e.target.value)}
+                      placeholder="Cerca utente..."
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg">
+                    {assignLoading && <p className="text-xs text-gray-400 text-center py-3">Caricamento...</p>}
+                    {!assignLoading && assignUsers.length === 0 && <p className="text-xs text-gray-400 text-center py-3">Nessun utente</p>}
+                    {assignUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => { setAssignToUser(u); setShowAssignField(false); setAssignSearch('') }}
+                        className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 text-left"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-medium">
+                          {u.full_name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <span className="text-sm text-gray-900">{u.full_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAssignField(false); setAssignSearch('') }}
+                    className="mt-1 text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Annulla
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Visibility (only shown when not using inline assignment) */}
+          {!assignToUser && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visibilita</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'private' as TaskVisibility, label: 'Privato' },
+                  { value: 'public' as TaskVisibility, label: 'Pubblico' },
+                ].map((v) => (
+                  <button
+                    key={v.value}
+                    type="button"
+                    onClick={() => setVisibility(v.value)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                      visibility === v.value
+                        ? 'bg-blue-50 text-blue-600 border-blue-200'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Due Date */}
           <div>
