@@ -59,6 +59,7 @@ export function useTasks() {
     role_id?: string | null
     referent?: string | null
     company?: string | null
+    assigned_by?: string | null
   }) => {
     if (!user) return null
     const supabase = createClient()
@@ -77,6 +78,7 @@ export function useTasks() {
         role_id: data.role_id || null,
         referent: data.referent || null,
         company: data.company || null,
+        assigned_by: data.assigned_by || null,
         created_by: user.id,
       })
       .select()

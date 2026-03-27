@@ -10,6 +10,7 @@ import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useTasks } from '@/hooks/useTasks'
 import { useRoles } from '@/hooks/useRoles'
+import { useAssignments } from '@/hooks/useAssignments'
 import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
 
@@ -17,6 +18,7 @@ export default function MyTasksPage() {
   const { user } = useAuth()
   const { tasks, loading, createTask, toggleStatus, updatePriority, deleteTask } = useTasks()
   const { roles } = useRoles()
+  const { assignTask } = useAssignments()
   const { filters } = useFilterStore()
 
   // Derive autocomplete suggestions from tasks
@@ -127,12 +129,16 @@ export default function MyTasksPage() {
     })
   }, [tasks, filters, user])
 
-  const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string) => {
-    await createTask({
+  const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string, assignToUserId?: string) => {
+    const task = await createTask({
       title,
       role_id: roleId || null,
       due_date: dueDate ? new Date(dueDate + 'T12:00:00').toISOString() : null,
+      ...(assignToUserId ? { visibility: 'assigned', assigned_by: user?.id } : {}),
     })
+    if (assignToUserId && task?.id) {
+      await assignTask(task.id, assignToUserId)
+    }
   }
 
   return (
