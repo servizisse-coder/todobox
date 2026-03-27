@@ -96,8 +96,7 @@ export default function TodayPage() {
     )
   }, [myTasks])
 
-  const todayActiveTasks = useMemo(() => myTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled'), [myTasks])
-  const { completed, total } = useProductivity(myTasks)
+  const { completed, total, completedByMe, delegatedCompleted } = useProductivity(myTasks)
 
   const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string) => {
     await createTask({
@@ -122,7 +121,7 @@ export default function TodayPage() {
         <QuickAdd onAdd={handleQuickAdd} roles={roles} />
 
         {/* Productivity */}
-        <ProductivityCounter completed={completed} total={total} />
+        <ProductivityCounter completed={completed} total={total} completedByMe={completedByMe} delegatedCompleted={delegatedCompleted} />
 
         {/* Tasks by urgency group */}
         {loading ? (
