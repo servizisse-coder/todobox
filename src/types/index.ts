@@ -18,6 +18,16 @@ export type AssignmentStatus = 'pending' | 'accepted' | 'declined'
 export type UpdateType = 'note' | 'status_change' | 'priority_change' | 'claimed' | 'assigned' | 'accepted' | 'declined'
 export type NotificationType = 'task_assigned' | 'task_accepted' | 'task_declined' | 'task_updated' | 'task_due_today' | 'task_claimed' | 'task_completed'
 
+export interface TodoRole {
+  id: string
+  user_id: string
+  name: string
+  color: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export interface TodoTask {
   id: string
   title: string
@@ -37,11 +47,16 @@ export interface TodoTask {
   completed_at: string | null
   created_at: string
   updated_at: string
+  // New fields
+  role_id: string | null
+  referent: string | null
+  company: string | null
   // Joined fields
   creator?: Profile
   assignee?: Profile
   assigner?: Profile
   claimer?: Profile
+  role?: TodoRole
 }
 
 export interface TodoAssignment {
@@ -89,5 +104,6 @@ export interface TaskFilters {
   priority: TaskPriority | 'all'
   type: 'all' | 'personal' | 'assigned_to_me' | 'assigned_by_me' | 'public'
   dueDate: 'all' | 'today' | 'this_week' | 'overdue' | 'no_date'
+  role: string | 'all'
   search: string
 }
