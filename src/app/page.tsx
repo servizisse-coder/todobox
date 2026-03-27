@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useTasks } from '@/hooks/useTasks'
 import { useRoles } from '@/hooks/useRoles'
 import { useProductivity } from '@/hooks/useProductivity'
+import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
 import type { TodoTask } from '@/types'
 
@@ -55,14 +56,17 @@ export default function TodayPage() {
   const { user } = useAuth()
   const { tasks, loading, createTask, toggleStatus, updatePriority, deleteTask } = useTasks()
   const { roles } = useRoles()
+  const { filters, setFilter } = useFilterStore()
 
+  // Work queue: tasks I need to do personally (exclude delegated)
   const myTasks = useMemo(() => {
     if (!user) return []
-    return tasks.filter(t =>
-      t.created_by === user.id ||
-      t.assigned_to === user.id ||
-      t.claimed_by === user.id
-    )
+    return tasks.filter(t => {
+      // Delegated: I created it but someone else is assigned → exclude
+      if (t.created_by === user.id && t.assigned_to && t.assigned_to !== user.id) return false
+      // Include: my own tasks, tasks assigned to me, tasks I claimed
+      return t.created_by === user.id || t.assigned_to === user.id || t.claimed_by === user.id
+    })
   }, [tasks, user])
 
   // Active tasks grouped by urgency
@@ -82,10 +86,11 @@ export default function TodayPage() {
       groupTasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
     })
 
-    // Return sorted entries
+    // Return sorted entries, optionally filtered to urgent only
     return Array.from(groups.entries())
+      .filter(([group]) => !filters.urgentOnly || group === 'overdue' || group === 'due_today')
       .sort(([a], [b]) => urgencyOrder[a] - urgencyOrder[b])
-  }, [myTasks])
+  }, [myTasks, filters.urgentOnly])
 
   // Tasks completed today
   const completedToday = useMemo(() => {
@@ -115,6 +120,16 @@ export default function TodayPage() {
         <div className="flex items-center gap-2">
           <CalendarDays className="w-5 h-5 text-blue-500" />
           <h1 className="text-lg font-bold text-gray-900">Oggi</h1>
+          <button
+            onClick={() => setFilter('urgentOnly', !filters.urgentOnly)}
+            className={`ml-auto text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              filters.urgentOnly
+                ? 'bg-red-50 text-red-600 border-red-200'
+                : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            Solo urgenti
+          </button>
         </div>
 
         {/* Quick Add */}

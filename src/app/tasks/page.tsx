@@ -19,13 +19,18 @@ export default function MyTasksPage() {
   const { roles } = useRoles()
   const { filters } = useFilterStore()
 
+  // Derive autocomplete suggestions from tasks
+  const referentSuggestions = useMemo(() =>
+    [...new Set(tasks.filter(t => t.referent).map(t => t.referent!))].sort()
+  , [tasks])
+  const companySuggestions = useMemo(() =>
+    [...new Set(tasks.filter(t => t.company).map(t => t.company!))].sort()
+  , [tasks])
+
   const filteredTasks = useMemo(() => {
     if (!user) return []
-    let result = tasks.filter(t =>
-      t.created_by === user.id ||
-      t.assigned_to === user.id ||
-      t.claimed_by === user.id
-    )
+    // Archive view: ALL tasks created by user (any state/visibility)
+    let result = tasks.filter(t => t.created_by === user.id)
 
     if (filters.status !== 'all') {
       result = result.filter(t => t.status === filters.status)
@@ -75,6 +80,15 @@ export default function MyTasksPage() {
     }
     if (filters.role !== 'all') {
       result = result.filter(t => t.role_id === filters.role)
+    }
+    if (filters.visibility !== 'all') {
+      result = result.filter(t => t.visibility === filters.visibility)
+    }
+    if (filters.referent !== 'all') {
+      result = result.filter(t => t.referent === filters.referent)
+    }
+    if (filters.company !== 'all') {
+      result = result.filter(t => t.company === filters.company)
     }
     if (filters.search) {
       const q = filters.search.toLowerCase()
@@ -131,7 +145,7 @@ export default function MyTasksPage() {
         </div>
 
         <QuickAdd onAdd={handleQuickAdd} roles={roles} />
-        <TaskFilters />
+        <TaskFilters showAdvanced referentSuggestions={referentSuggestions} companySuggestions={companySuggestions} />
 
         {loading ? (
           <div className="text-center py-8">
