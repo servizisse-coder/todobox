@@ -19,9 +19,9 @@ const navItems = [
   { href: '/assigned', label: 'Assegnati a me', icon: Inbox },
   { href: '/sent', label: 'Assegnati da me', icon: Send },
   { href: '/public', label: 'Pubblici', icon: Globe },
-  { href: '/notifications', label: 'Notifiche', icon: Bell },
   { href: '/review', label: 'Revisione', icon: BarChart3 },
   { href: '/settings', label: 'Impostazioni', icon: Settings },
+  { href: '/notifications', label: 'Notifiche', icon: Bell },
 ]
 
 interface SidebarProps {
