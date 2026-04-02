@@ -108,6 +108,31 @@ export function useRoles() {
     return true
   }
 
+  const setDefaultRole = async (id: string) => {
+    if (!user) return false
+    const supabase = createClient()
+
+    // Remove default from all roles
+    await supabase
+      .from('todo_roles')
+      .update({ is_default: false })
+      .eq('user_id', user.id)
+
+    // Set the new default
+    const { error } = await supabase
+      .from('todo_roles')
+      .update({ is_default: true })
+      .eq('id', id)
+
+    if (error) {
+      useToastStore.getState().addToast('Errore nell\'impostazione del ruolo predefinito', 'error')
+      return false
+    }
+
+    await fetchRoles()
+    return true
+  }
+
   const reorderRoles = async (reorderedRoles: TodoRole[]) => {
     const supabase = createClient()
 
@@ -138,6 +163,7 @@ export function useRoles() {
     createRole,
     updateRole,
     deleteRole,
+    setDefaultRole,
     reorderRoles,
     refetch: fetchRoles,
   }

@@ -9,7 +9,7 @@ import { useRoles } from '@/hooks/useRoles'
 import { useTasks } from '@/hooks/useTasks'
 
 export default function SettingsPage() {
-  const { roles, loading, createRole, updateRole, deleteRole, reorderRoles } = useRoles()
+  const { roles, loading, createRole, updateRole, deleteRole, setDefaultRole, reorderRoles } = useRoles()
   const { tasks } = useTasks()
 
   const taskCountByRole = useMemo(() => {
@@ -44,6 +44,7 @@ export default function SettingsPage() {
               onCreateRole={createRole}
               onUpdateRole={updateRole}
               onDeleteRole={deleteRole}
+              onSetDefault={setDefaultRole}
               onReorder={reorderRoles}
               taskCountByRole={taskCountByRole}
             />

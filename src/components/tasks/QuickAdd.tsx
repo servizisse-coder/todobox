@@ -33,9 +33,10 @@ function getDateFromShortcut(shortcut: DateShortcut): string | undefined {
 export function QuickAdd({ onAdd, roles }: QuickAddProps) {
   const { user } = useAuth()
   const [title, setTitle] = useState('')
-  const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(
-    roles.length > 0 ? roles[0].id : undefined
-  )
+  const [selectedRoleId, setSelectedRoleId] = useState<string | undefined>(() => {
+    const defaultRole = roles.find(r => r.is_default)
+    return defaultRole?.id || (roles.length > 0 ? roles[0].id : undefined)
+  })
   const [dateShortcut, setDateShortcut] = useState<DateShortcut>('none')
   const [customDate, setCustomDate] = useState('')
   const [adding, setAdding] = useState(false)
@@ -50,7 +51,8 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
   // Update default role when roles load
   useEffect(() => {
     if (roles.length > 0 && !selectedRoleId) {
-      setSelectedRoleId(roles[0].id)
+      const defaultRole = roles.find(r => r.is_default)
+      setSelectedRoleId(defaultRole?.id || roles[0].id)
     }
   }, [roles, selectedRoleId])
 

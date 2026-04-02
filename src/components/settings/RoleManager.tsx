@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Check, X, Star } from 'lucide-react'
 import type { TodoRole } from '@/types'
 import ColorPicker, { ROLE_COLORS } from './ColorPicker'
 
@@ -10,6 +10,7 @@ interface RoleManagerProps {
   onCreateRole: (name: string, color: string) => Promise<unknown>
   onUpdateRole: (id: string, updates: { name?: string; color?: string }) => Promise<boolean>
   onDeleteRole: (id: string) => Promise<boolean>
+  onSetDefault: (id: string) => Promise<boolean>
   onReorder: (roles: TodoRole[]) => Promise<void>
   taskCountByRole?: Record<string, number>
 }
@@ -19,6 +20,7 @@ export default function RoleManager({
   onCreateRole,
   onUpdateRole,
   onDeleteRole,
+  onSetDefault,
   onReorder,
   taskCountByRole = {},
 }: RoleManagerProps) {
@@ -135,10 +137,20 @@ export default function RoleManager({
                 style={{ backgroundColor: role.color }}
               />
               <span className="flex-1 font-medium text-gray-900">{role.name}</span>
+              {role.is_default && (
+                <span className="text-xs bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-medium">Predefinito</span>
+              )}
               <span className="text-xs text-gray-400">
                 {taskCountByRole[role.id] || 0} task
               </span>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onSetDefault(role.id)}
+                  className={`p-1 transition-colors ${role.is_default ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+                  title={role.is_default ? 'Ruolo predefinito' : 'Imposta come predefinito'}
+                >
+                  <Star className={`w-4 h-4 ${role.is_default ? 'fill-current' : ''}`} />
+                </button>
                 <button
                   onClick={() => handleMoveUp(index)}
                   disabled={index === 0}
