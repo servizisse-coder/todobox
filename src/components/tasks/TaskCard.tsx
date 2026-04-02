@@ -9,6 +9,7 @@ import { DueDateBadge } from './DueDateBadge'
 import { RecurringBadge } from './RecurringBadge'
 import { RoleBadge } from './RoleBadge'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { useFilterStore } from '@/store/filterStore'
 
 interface TaskCardProps {
   task: TodoTask
@@ -22,6 +23,7 @@ interface TaskCardProps {
 
 export function TaskCard({ task, onToggle, onStart, onPriorityChange, onUpdate, onDelete, showAssignment }: TaskCardProps) {
   const { user } = useAuth()
+  const { viewPrefs } = useFilterStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
@@ -113,24 +115,24 @@ export function TaskCard({ task, onToggle, onStart, onPriorityChange, onUpdate, 
             )}
           </div>
 
-          {/* Meta row */}
+          {/* Meta row — respects view preferences */}
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {task.role && (
+            {viewPrefs.showRoleBadge && task.role && (
               <RoleBadge role={task.role} />
             )}
-            {task.due_date && (
+            {viewPrefs.showDueDateBadge && task.due_date && (
               <DueDateBadge dueDate={task.due_date} completed={isDone} />
             )}
             {task.is_recurring && task.recurrence_type && (
               <RecurringBadge recurrenceType={task.recurrence_type} interval={task.recurrence_interval} />
             )}
-            {showAssignment && task.assigner && task.assigned_by !== user?.id && (
+            {viewPrefs.showAssignment && showAssignment && task.assigner && task.assigned_by !== user?.id && (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <User className="w-3 h-3" />
                 Da {task.assigner.full_name}
               </span>
             )}
-            {showAssignment && task.assignee && task.created_by === user?.id && (
+            {viewPrefs.showAssignment && showAssignment && task.assignee && task.created_by === user?.id && (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <User className="w-3 h-3" />
                 A {task.assignee.full_name}
@@ -147,10 +149,12 @@ export function TaskCard({ task, onToggle, onStart, onPriorityChange, onUpdate, 
 
         {/* Priority + Menu */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <PriorityBadge
-            priority={task.priority}
-            onClick={(p) => onPriorityChange(task, p)}
-          />
+          {viewPrefs.showPriorityBadge && (
+            <PriorityBadge
+              priority={task.priority}
+              onClick={(p) => onPriorityChange(task, p)}
+            />
+          )}
 
           <div className="relative">
             <button

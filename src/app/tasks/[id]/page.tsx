@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Edit3, Trash2, UserPlus, Users, Check, Clock, XCircle, Timer, Play } from 'lucide-react'
+import { ArrowLeft, Edit3, Trash2, UserPlus, Users, Check, Clock, XCircle, Timer, Play, Paperclip, Download, X, FileText, Image } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { AppShell } from '@/components/layout/AppShell'
@@ -17,6 +17,7 @@ import { AssignTaskModal } from '@/components/tasks/AssignTaskModal'
 import { useTasks } from '@/hooks/useTasks'
 import { useTaskUpdates } from '@/hooks/useTaskUpdates'
 import { useAssignments } from '@/hooks/useAssignments'
+import { useAttachments } from '@/hooks/useAttachments'
 import { useAuth } from '@/components/providers/AuthProvider'
 import type { TaskStatus, TodoTask } from '@/types'
 
@@ -37,7 +38,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const { tasks, loading: tasksLoading, toggleStatus, startTask, updatePriority, updateTask, deleteTask } = useTasks()
   const { updates, addNote } = useTaskUpdates(id)
   const { assignTask, assignedByMe } = useAssignments()
+  const { attachments, uploading, uploadFile, deleteAttachment, getFileUrl } = useAttachments(id)
   const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Get all assignments for this task
   const taskAssignments = assignedByMe.filter(a => {
@@ -286,6 +289,84 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               </p>
             )}
           </div>
+        </div>
+
+        {/* Attachments */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Paperclip className="w-4 h-4 text-gray-400" />
+              <span className="text-sm font-semibold text-gray-700">
+                Allegati {attachments.length > 0 && `(${attachments.length})`}
+              </span>
+            </div>
+            {canEdit && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (file) await uploadFile(file)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="text-xs text-blue-500 hover:text-blue-600 font-medium disabled:opacity-50"
+                >
+                  {uploading ? 'Caricamento...' : '+ Aggiungi file'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {attachments.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-2">Nessun allegato</p>
+          ) : (
+            <div className="space-y-1.5">
+              {attachments.map((att) => {
+                const isImage = att.mime_type?.startsWith('image/')
+                const sizeKb = att.file_size ? Math.round(att.file_size / 1024) : null
+                return (
+                  <div key={att.id} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                    {isImage ? (
+                      <Image className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700 truncate">{att.file_name}</p>
+                      {sizeKb !== null && (
+                        <p className="text-[10px] text-gray-400">{sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const url = await getFileUrl(att.file_path)
+                        if (url) window.open(url, '_blank')
+                      }}
+                      className="p-1 text-gray-400 hover:text-blue-500"
+                      title="Scarica"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                    {att.user_id === user?.id && (
+                      <button
+                        onClick={() => deleteAttachment(att.id, att.file_path)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                        title="Rimuovi"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Timeline */}
