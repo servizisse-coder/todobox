@@ -19,7 +19,7 @@ const typeIcons: Record<string, string> = {
 }
 
 export default function NotificationsPage() {
-  const { notifications, loading, markAsRead, markAllAsRead } = useNotifications()
+  const { notifications, loading, hasMore, loadMore, markAsRead, markAllAsRead } = useNotifications()
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
@@ -59,7 +59,7 @@ export default function NotificationsPage() {
           />
         ) : (
           <div className="space-y-1">
-            {notifications.map((notification) => (
+            {notifications.map((notification, idx) => (
               <div
                 key={notification.id}
                 onClick={() => !notification.is_read && markAsRead(notification.id)}
@@ -106,6 +106,14 @@ export default function NotificationsPage() {
                 )}
               </div>
             ))}
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                className="w-full py-2 text-xs text-blue-500 hover:text-blue-600 font-medium"
+              >
+                Carica altre notifiche
+              </button>
+            )}
           </div>
         )}
       </div>

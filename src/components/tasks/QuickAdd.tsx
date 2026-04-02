@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Calendar, UserPlus, X } from 'lucide-react'
+import { Plus, Calendar, UserPlus, X, Settings } from 'lucide-react'
+import Link from 'next/link'
 import { addDays, nextMonday, format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -112,10 +113,11 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
         <Plus className="w-5 h-5 text-gray-400 flex-shrink-0" />
         <input
           ref={inputRef}
+          id="quickadd-input"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Aggiungi un task..."
+          placeholder="Aggiungi un task... (⌘K)"
           className="flex-1 text-sm outline-none placeholder-gray-400"
           autoComplete="off"
         />
@@ -128,8 +130,13 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
         </button>
       </div>
 
-      {/* Row 2: Role chips */}
-      {roles.length > 0 && (
+      {/* Row 2: Role chips or onboarding */}
+      {roles.length === 0 ? (
+        <Link href="/settings" className="flex items-center gap-1.5 pl-7 text-xs text-gray-400 hover:text-blue-500 transition-colors">
+          <Settings className="w-3.5 h-3.5" />
+          Configura i tuoi ruoli nelle Impostazioni
+        </Link>
+      ) : (
         <div className="flex gap-1.5 overflow-x-auto pl-7 pb-0.5 scrollbar-hide">
           {roles.map((role) => (
             <button
@@ -150,6 +157,7 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
       )}
 
       {/* Row 3: Date shortcuts */}
+
       <div className="flex items-center gap-1.5 pl-7">
         <Calendar className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
         {dateShortcuts.map(({ key, label }) => (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { MoreHorizontal, Trash2, Edit3, User, ExternalLink, Play, Square } from 'lucide-react'
 import Link from 'next/link'
 import type { TodoTask, TaskPriority } from '@/types'
@@ -15,14 +15,27 @@ interface TaskCardProps {
   onToggle: (task: TodoTask) => void
   onStart?: (task: TodoTask) => void
   onPriorityChange: (task: TodoTask, priority: TaskPriority) => void
+  onUpdate?: (taskId: string, updates: Partial<TodoTask>) => Promise<boolean>
   onDelete: (taskId: string) => void
   showAssignment?: boolean
 }
 
-export function TaskCard({ task, onToggle, onStart, onPriorityChange, onDelete, showAssignment }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onStart, onPriorityChange, onUpdate, onDelete, showAssignment }: TaskCardProps) {
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(task.title)
+  const editRef = useRef<HTMLInputElement>(null)
   const isDone = task.status === 'done'
+  const canEdit = task.created_by === user?.id || task.assigned_to === user?.id || task.claimed_by === user?.id
+
+  const handleSaveTitle = async () => {
+    const trimmed = editTitle.trim()
+    if (trimmed && trimmed !== task.title && onUpdate) {
+      await onUpdate(task.id, { title: trimmed })
+    }
+    setEditing(false)
+  }
 
   return (
     <div className={`task-card task-enter bg-white border rounded-xl p-3 ${isDone ? 'opacity-60' : ''}`}>
@@ -69,12 +82,35 @@ export function TaskCard({ task, onToggle, onStart, onPriorityChange, onDelete, 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <Link
-              href={`/tasks/${task.id}`}
-              className={`text-sm font-medium truncate hover:text-blue-600 transition-colors ${isDone ? 'line-through text-gray-400' : 'text-gray-900'}`}
-            >
-              {task.title}
-            </Link>
+            {editing ? (
+              <input
+                ref={editRef}
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={handleSaveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveTitle()
+                  if (e.key === 'Escape') { setEditTitle(task.title); setEditing(false) }
+                }}
+                className="flex-1 text-sm font-medium text-gray-900 outline-none border-b-2 border-blue-500 bg-transparent"
+                autoFocus
+              />
+            ) : (
+              <Link
+                href={`/tasks/${task.id}`}
+                onDoubleClick={(e) => {
+                  if (canEdit && onUpdate) {
+                    e.preventDefault()
+                    setEditTitle(task.title)
+                    setEditing(true)
+                  }
+                }}
+                className={`text-sm font-medium truncate hover:text-blue-600 transition-colors ${isDone ? 'line-through text-gray-400' : 'text-gray-900'}`}
+              >
+                {task.title}
+              </Link>
+            )}
           </div>
 
           {/* Meta row */}

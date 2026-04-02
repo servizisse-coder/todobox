@@ -290,16 +290,31 @@ export function useTasks() {
   const deleteTask = async (taskId: string) => {
     const supabase = createClient()
 
-    // Aggiornamento ottimistico
-    const previousTasks = tasks
+    // Aggiornamento ottimistico — nascondi dalla UI
+    const deletedTask = tasks.find(t => t.id === taskId)
     setTasks(prev => prev.filter(t => t.id !== taskId))
 
-    const { error } = await supabase.from('todo_tasks').delete().eq('id', taskId)
-    if (error) {
-      setTasks(previousTasks)
-      useToastStore.getState().addToast('Errore nell\'eliminazione del task', 'error')
-      return false
-    }
+    // Delayed delete — 5 secondi per annullare
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      if (cancelled) return
+      const { error } = await supabase.from('todo_tasks').delete().eq('id', taskId)
+      if (error) {
+        // Ripristina se il delete fallisce
+        if (deletedTask) setTasks(prev => [...prev, deletedTask])
+        useToastStore.getState().addToast('Errore nell\'eliminazione del task', 'error')
+      }
+    }, 5000)
+
+    useToastStore.getState().addToast('Task eliminato', 'info', {
+      label: 'Annulla',
+      onClick: () => {
+        cancelled = true
+        clearTimeout(timer)
+        if (deletedTask) setTasks(prev => [...prev, deletedTask])
+      },
+    })
+
     return true
   }
 

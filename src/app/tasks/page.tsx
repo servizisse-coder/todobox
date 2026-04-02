@@ -17,7 +17,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 
 export default function MyTasksPage() {
   const { user } = useAuth()
-  const { tasks, loading, createTask, toggleStatus, startTask, updatePriority, deleteTask } = useTasks()
+  const { tasks, loading, createTask, toggleStatus, startTask, updatePriority, updateTask, deleteTask } = useTasks()
   const { roles } = useRoles()
   const { assignTask } = useAssignments()
   const { filters } = useFilterStore()
@@ -174,6 +174,7 @@ export default function MyTasksPage() {
                 onToggle={toggleStatus}
                 onStart={startTask}
                 onPriorityChange={updatePriority}
+                onUpdate={updateTask}
                 onDelete={deleteTask}
                 showAssignment
               />

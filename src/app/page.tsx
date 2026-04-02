@@ -15,6 +15,7 @@ import { useProductivity } from '@/hooks/useProductivity'
 import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { TaskSkeleton } from '@/components/ui/TaskSkeleton'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import type { TodoTask } from '@/types'
 
 type UrgencyGroup = 'overdue' | 'due_today' | 'tomorrow' | 'this_week' | 'future' | 'no_date'
@@ -56,10 +57,14 @@ const priorityOrder = { high: 0, medium: 1, low: 2 }
 
 export default function TodayPage() {
   const { user } = useAuth()
-  const { tasks, loading, createTask, toggleStatus, startTask, updatePriority, deleteTask } = useTasks()
+  const { tasks, loading, createTask, toggleStatus, startTask, updatePriority, updateTask, deleteTask } = useTasks()
   const { roles } = useRoles()
   const { assignTask } = useAssignments()
   const { filters, setFilter } = useFilterStore()
+
+  useKeyboardShortcuts({
+    onQuickAdd: () => document.getElementById('quickadd-input')?.focus(),
+  })
 
   // Work queue: tasks I need to do personally (exclude delegated)
   const myTasks = useMemo(() => {
@@ -177,6 +182,7 @@ export default function TodayPage() {
                         onToggle={toggleStatus}
                         onStart={startTask}
                         onPriorityChange={updatePriority}
+                        onUpdate={updateTask}
                         onDelete={deleteTask}
                         showAssignment
                       />
@@ -201,6 +207,7 @@ export default function TodayPage() {
                   task={task}
                   onToggle={toggleStatus}
                   onPriorityChange={updatePriority}
+                  onUpdate={updateTask}
                   onDelete={deleteTask}
                 />
               ))}
