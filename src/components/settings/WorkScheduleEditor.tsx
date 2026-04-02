@@ -56,12 +56,12 @@ export function WorkScheduleEditor() {
           <div key={key} className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3">
             <button
               onClick={() => handleToggleDay(key)}
-              className={`w-8 h-5 rounded-full transition-colors relative flex-shrink-0 ${
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
                 isActive ? 'bg-blue-500' : 'bg-gray-200'
               }`}
             >
-              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                isActive ? 'translate-x-3.5' : 'translate-x-0.5'
+              <span className={`absolute top-[2px] left-[2px] w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                isActive ? 'translate-x-5' : 'translate-x-0'
               }`} />
             </button>
             <span className={`text-sm font-medium w-20 ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
