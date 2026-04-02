@@ -142,6 +142,24 @@ export interface WorkSchedule {
   updated_at: string
 }
 
+export type FeedbackType = 'bug' | 'improvement' | 'question'
+export type FeedbackStatus = 'open' | 'in_progress' | 'resolved' | 'wont_fix'
+
+export interface TodoFeedback {
+  id: string
+  user_id: string
+  type: FeedbackType
+  title: string
+  description: string | null
+  screenshot_url: string | null
+  status: FeedbackStatus
+  admin_response: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  user?: Profile
+}
+
 export type SortBy = 'urgency' | 'due_date' | 'priority' | 'created' | 'role'
 
 export interface TaskFilters {

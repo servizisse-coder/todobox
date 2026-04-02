@@ -13,6 +13,7 @@ import {
   BarChart3,
   Settings,
   Users,
+  MessageSquarePlus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -27,6 +28,7 @@ const baseNavItems = [
 ]
 
 const bottomNavItems = [
+  { href: '/feedback', label: 'Feedback', icon: MessageSquarePlus },
   { href: '/settings', label: 'Impostazioni', icon: Settings },
   { href: '/notifications', label: 'Notifiche', icon: Bell },
 ]
