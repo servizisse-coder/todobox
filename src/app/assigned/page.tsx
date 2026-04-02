@@ -62,7 +62,19 @@ export default function AssignedToMePage() {
                         <p className="text-xs text-gray-500 mt-0.5">{taskData.description}</p>
                       )}
                       <p className="text-xs text-gray-400 mt-1">
-                        Da {(assignment.sender as { full_name?: string })?.full_name || 'Utente'} &middot;{' '}
+                        Da {(assignment.sender as { full_name?: string })?.full_name || 'Utente'}
+                        {assignment.assigned_role && (
+                          <span>
+                            {' · '}
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-white text-[10px] font-medium"
+                              style={{ backgroundColor: (assignment.assigned_role as { color: string }).color }}
+                            >
+                              {(assignment.assigned_role as { name: string }).name}
+                            </span>
+                          </span>
+                        )}
+                        {' · '}
                         {format(new Date(assignment.created_at), 'd MMM yyyy', { locale: it })}
                       </p>
                     </div>

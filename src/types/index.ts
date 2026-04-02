@@ -87,6 +87,7 @@ export interface TodoAssignment {
   from_user: string
   to_user: string
   status: AssignmentStatus
+  assigned_role_id: string | null
   decline_reason: string | null
   created_at: string
   responded_at: string | null
@@ -94,6 +95,7 @@ export interface TodoAssignment {
   task?: TodoTask
   sender?: Profile
   recipient?: Profile
+  assigned_role?: TodoRole
 }
 
 export interface TodoUpdate {

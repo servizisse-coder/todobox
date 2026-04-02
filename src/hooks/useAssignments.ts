@@ -19,12 +19,12 @@ export function useAssignments() {
     const [toMeRes, byMeRes] = await Promise.all([
       supabase
         .from('todo_assignments')
-        .select('*, task:todo_tasks(*, creator:profiles!todo_tasks_created_by_fkey(*)), sender:profiles!todo_assignments_from_user_fkey(*)')
+        .select('*, task:todo_tasks(*, creator:profiles!todo_tasks_created_by_fkey(*)), sender:profiles!todo_assignments_from_user_fkey(*), assigned_role:todo_roles(*)')
         .eq('to_user', user.id)
         .order('created_at', { ascending: false }),
       supabase
         .from('todo_assignments')
-        .select('*, task:todo_tasks(*, assignee:profiles!todo_tasks_assigned_to_fkey(*)), recipient:profiles!todo_assignments_to_user_fkey(*)')
+        .select('*, task:todo_tasks(*, assignee:profiles!todo_tasks_assigned_to_fkey(*)), recipient:profiles!todo_assignments_to_user_fkey(*), assigned_role:todo_roles(*)')
         .eq('from_user', user.id)
         .order('created_at', { ascending: false }),
     ])
@@ -54,11 +54,11 @@ export function useAssignments() {
     return () => { supabase.removeChannel(channel) }
   }, [user, fetchAssignments])
 
-  const assignTask = async (taskId: string, toUserId: string) => {
+  const assignTask = async (taskId: string, toUserId: string, assignedRoleId?: string) => {
     if (!user) return false
     const supabase = createClient()
 
-    // BUG 2: Check for existing active assignment
+    // Check for existing active assignment
     const { data: existing } = await supabase
       .from('todo_assignments')
       .select('id')
@@ -77,6 +77,7 @@ export function useAssignments() {
       task_id: taskId,
       from_user: user.id,
       to_user: toUserId,
+      assigned_role_id: assignedRoleId || null,
     })
 
     if (assignError) {
