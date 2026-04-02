@@ -132,6 +132,11 @@ export function useTasks() {
       return
     }
 
+    useToastStore.getState().addToast(
+      newStatus === 'done' ? 'Task completato' : 'Task riaperto',
+      'success'
+    )
+
     // Add auto update entry
     await supabase.from('todo_updates').insert({
       task_id: task.id,
@@ -227,6 +232,8 @@ export function useTasks() {
       return
     }
 
+    useToastStore.getState().addToast('Task avviato', 'success')
+
     await supabase.from('todo_updates').insert({
       task_id: task.id,
       user_id: user.id,
@@ -265,6 +272,9 @@ export function useTasks() {
       useToastStore.getState().addToast('Errore nel cambio priorità', 'error')
       return
     }
+
+    const labels: Record<string, string> = { high: 'alta', medium: 'media', low: 'bassa' }
+    useToastStore.getState().addToast(`Priorità: ${labels[newPriority] || newPriority}`, 'success')
 
     await supabase.from('todo_updates').insert({
       task_id: task.id,
@@ -315,6 +325,8 @@ export function useTasks() {
       useToastStore.getState().addToast('Errore nella presa in carico', 'error')
       return
     }
+
+    useToastStore.getState().addToast('Task preso in carico', 'success')
 
     await supabase.from('todo_updates').insert({
       task_id: task.id,

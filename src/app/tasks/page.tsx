@@ -8,6 +8,7 @@ import { QuickAdd } from '@/components/tasks/QuickAdd'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { TaskSkeleton } from '@/components/ui/TaskSkeleton'
 import { useTasks } from '@/hooks/useTasks'
 import { useRoles } from '@/hooks/useRoles'
 import { useAssignments } from '@/hooks/useAssignments'
@@ -157,9 +158,7 @@ export default function MyTasksPage() {
         <TaskFilters showAdvanced referentSuggestions={referentSuggestions} companySuggestions={companySuggestions} />
 
         {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-pulse text-sm text-gray-400">Caricamento...</div>
-          </div>
+          <TaskSkeleton count={5} />
         ) : filteredTasks.length === 0 ? (
           <EmptyState
             icon={CheckCircle2}

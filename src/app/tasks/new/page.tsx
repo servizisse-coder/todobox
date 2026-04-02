@@ -376,7 +376,7 @@ function NewTaskPage() {
           {/* Visibility (only shown when not using inline assignment) */}
           {assignToUsers.length === 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Visibilita</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Visibilità</label>
               <div className="flex gap-2">
                 {[
                   { value: 'private' as TaskVisibility, label: 'Privato' },

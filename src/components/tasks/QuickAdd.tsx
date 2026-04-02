@@ -101,7 +101,7 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
     { key: 'none', label: 'Nessuna' },
     { key: 'today', label: 'Oggi' },
     { key: 'tomorrow', label: 'Domani' },
-    { key: 'monday', label: 'Lunedi' },
+    { key: 'monday', label: 'Lunedì' },
     { key: 'custom', label: '📅' },
   ]
 

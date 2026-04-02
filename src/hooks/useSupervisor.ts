@@ -50,38 +50,39 @@ export function useSupervisor() {
       setSupervisedUsers(profiles as Profile[])
     }
 
-    // Fetch task stats for each supervised user
+    // Fetch ALL tasks for all supervised users in a single query
     const now = new Date()
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() - now.getDay() + 1) // Monday
     weekStart.setHours(0, 0, 0, 0)
 
-    const stats: SupervisedUserStats[] = []
-    for (const profile of (profiles || []) as Profile[]) {
-      const { data: tasks } = await supabase
-        .from('todo_tasks')
-        .select('id, status, due_date, completed_at')
-        .eq('created_by', profile.id)
+    const { data: allTasks } = await supabase
+      .from('todo_tasks')
+      .select('id, status, due_date, completed_at, created_by')
+      .in('created_by', supervisedIds)
 
-      const allTasks = (tasks || []) as Pick<TodoTask, 'id' | 'status' | 'due_date' | 'completed_at'>[]
-      const openTasks = allTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled')
-      const overdueTasks = openTasks.filter(t => {
-        if (!t.due_date) return false
-        return new Date(t.due_date) < now
-      })
-      const completedThisWeek = allTasks.filter(t => {
-        if (t.status !== 'done' || !t.completed_at) return false
-        return new Date(t.completed_at) >= weekStart
-      })
+    const tasksByUser = new Map<string, typeof allTasks>()
+    for (const task of (allTasks || [])) {
+      const list = tasksByUser.get(task.created_by) || []
+      list.push(task)
+      tasksByUser.set(task.created_by, list)
+    }
 
-      stats.push({
-        user: profile,
+    const stats: SupervisedUserStats[] = (profiles || []).map((profile) => {
+      const userTasks = tasksByUser.get((profile as Profile).id) || []
+      const openTasks = userTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled')
+      const overdueTasks = openTasks.filter(t => t.due_date && new Date(t.due_date) < now)
+      const completedThisWeek = userTasks.filter(t =>
+        t.status === 'done' && t.completed_at && new Date(t.completed_at) >= weekStart
+      )
+      return {
+        user: profile as Profile,
         totalOpen: openTasks.length,
         overdue: overdueTasks.length,
         completedThisWeek: completedThisWeek.length,
-        totalTasks: allTasks.length,
-      })
-    }
+        totalTasks: userTasks.length,
+      }
+    })
     setUserStats(stats)
     setLoading(false)
   }, [user])

@@ -4,11 +4,11 @@ import { useWorkSchedule } from '@/hooks/useWorkSchedule'
 import type { WorkSchedule } from '@/types'
 
 const DAYS = [
-  { key: 'monday', label: 'Lunedi' },
-  { key: 'tuesday', label: 'Martedi' },
-  { key: 'wednesday', label: 'Mercoledi' },
-  { key: 'thursday', label: 'Giovedi' },
-  { key: 'friday', label: 'Venerdi' },
+  { key: 'monday', label: 'Lunedì' },
+  { key: 'tuesday', label: 'Martedì' },
+  { key: 'wednesday', label: 'Mercoledì' },
+  { key: 'thursday', label: 'Giovedì' },
+  { key: 'friday', label: 'Venerdì' },
   { key: 'saturday', label: 'Sabato' },
   { key: 'sunday', label: 'Domenica' },
 ] as const

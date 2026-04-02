@@ -14,6 +14,7 @@ import { useAssignments } from '@/hooks/useAssignments'
 import { useProductivity } from '@/hooks/useProductivity'
 import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { TaskSkeleton } from '@/components/ui/TaskSkeleton'
 import type { TodoTask } from '@/types'
 
 type UrgencyGroup = 'overdue' | 'due_today' | 'tomorrow' | 'this_week' | 'future' | 'no_date'
@@ -149,9 +150,7 @@ export default function TodayPage() {
 
         {/* Tasks by urgency group */}
         {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-pulse text-sm text-gray-400">Caricamento task...</div>
-          </div>
+          <TaskSkeleton count={4} />
         ) : totalActive === 0 ? (
           <EmptyState
             icon={Sparkles}

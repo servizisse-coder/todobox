@@ -33,7 +33,7 @@ export default function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Ruoli</h2>
           <p className="text-sm text-gray-500 mb-4">
-            I ruoli ti aiutano a organizzare i task per area di responsabilita. Ogni task avra un ruolo associato.
+            I ruoli ti aiutano a organizzare i task per area di responsabilità. Ogni task avrà un ruolo associato.
           </p>
 
           {loading ? (

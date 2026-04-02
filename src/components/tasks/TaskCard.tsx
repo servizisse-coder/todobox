@@ -26,12 +26,12 @@ export function TaskCard({ task, onToggle, onStart, onPriorityChange, onDelete, 
 
   return (
     <div className={`task-card task-enter bg-white border rounded-xl p-3 ${isDone ? 'opacity-60' : ''}`}>
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
+      <div className="flex items-start gap-2">
+        {/* Checkbox — min 44px touch target */}
         <button
           onClick={() => onToggle(task)}
           className={`
-            mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all task-checkbox
+            mt-0.5 w-7 h-7 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all task-checkbox
             ${isDone
               ? 'border-green-500 bg-green-500 checked'
               : 'border-gray-300 hover:border-blue-400'
@@ -39,29 +39,29 @@ export function TaskCard({ task, onToggle, onStart, onPriorityChange, onDelete, 
           `}
         >
           {isDone && (
-            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           )}
         </button>
 
-        {/* Play/Stop button */}
+        {/* Play/Stop button — min 44px touch target */}
         {!isDone && onStart && (
           task.status === 'todo' ? (
             <button
               onClick={() => onStart(task)}
-              className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+              className="mt-0.5 w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
               title="Avvia task"
             >
-              <Play className="w-3 h-3 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
             </button>
           ) : task.status === 'in_progress' ? (
             <button
               onClick={() => onToggle(task)}
-              className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full text-blue-500 animate-pulse hover:text-green-500 hover:bg-green-50 transition-all"
+              className="mt-0.5 w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-blue-500 animate-pulse hover:text-green-500 hover:bg-green-50 transition-all"
               title="Completa task"
             >
-              <Square className="w-3 h-3 fill-current" />
+              <Square className="w-3.5 h-3.5 fill-current" />
             </button>
           ) : null
         )}
