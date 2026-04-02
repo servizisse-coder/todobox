@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { useToastStore } from '@/store/toastStore'
 import type { Profile, TodoTask } from '@/types'
 
 export interface SupervisedUserStats {
@@ -25,10 +26,16 @@ export function useSupervisor() {
     const supabase = createClient()
 
     // Check if current user is a supervisor
-    const { data: access } = await supabase
+    const { data: access, error: accessError } = await supabase
       .from('todo_supervisor_access')
       .select('supervised_id')
       .eq('supervisor_id', user.id)
+
+    if (accessError) {
+      useToastStore.getState().addToast('Errore nel caricamento dati team', 'error')
+      setLoading(false)
+      return
+    }
 
     if (!access || access.length === 0) {
       setIsSupervisor(false)
@@ -95,12 +102,16 @@ export function useSupervisor() {
     if (!user) return []
     const supabase = createClient()
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('todo_tasks')
       .select('*, role:todo_roles(*), creator:profiles!todo_tasks_created_by_fkey(*), assignee:profiles!todo_tasks_assigned_to_fkey(*)')
       .eq('created_by', userId)
       .order('created_at', { ascending: false })
 
+    if (error) {
+      useToastStore.getState().addToast('Errore nel caricamento task utente', 'error')
+      return []
+    }
     return (data || []) as TodoTask[]
   }, [user])
 

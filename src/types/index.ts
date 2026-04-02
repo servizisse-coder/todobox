@@ -18,6 +18,26 @@ export type AssignmentStatus = 'pending' | 'accepted' | 'declined'
 export type UpdateType = 'note' | 'status_change' | 'priority_change' | 'claimed' | 'assigned' | 'accepted' | 'declined'
 export type NotificationType = 'task_assigned' | 'task_accepted' | 'task_declined' | 'task_updated' | 'task_due_today' | 'task_claimed' | 'task_completed'
 
+// Labels for display
+export const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: 'Da fare',
+  in_progress: 'In corso',
+  done: 'Completato',
+  cancelled: 'Annullato',
+}
+
+export const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Bassa',
+}
+
+export const PRIORITY_ORDER: Record<TaskPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+}
+
 export interface TodoRole {
   id: string
   user_id: string

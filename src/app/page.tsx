@@ -14,6 +14,7 @@ import { useAssignments } from '@/hooks/useAssignments'
 import { useProductivity } from '@/hooks/useProductivity'
 import { useFilterStore } from '@/store/filterStore'
 import { useAuth } from '@/components/providers/AuthProvider'
+import { useMyWorkQueue } from '@/hooks/useFilteredTasks'
 import { TaskSkeleton } from '@/components/ui/TaskSkeleton'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import type { TodoTask } from '@/types'
@@ -67,15 +68,7 @@ export default function TodayPage() {
   })
 
   // Work queue: tasks I need to do personally (exclude delegated)
-  const myTasks = useMemo(() => {
-    if (!user) return []
-    return tasks.filter(t => {
-      // Delegated: I created it but someone else is assigned → exclude
-      if (t.created_by === user.id && t.assigned_to && t.assigned_to !== user.id) return false
-      // Include: my own tasks, tasks assigned to me, tasks I claimed
-      return t.created_by === user.id || t.assigned_to === user.id || t.claimed_by === user.id
-    })
-  }, [tasks, user])
+  const myTasks = useMyWorkQueue(tasks)
 
   // Active tasks grouped by urgency
   const groupedTasks = useMemo(() => {
