@@ -50,7 +50,7 @@ function NewTaskPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [savedTaskId, setSavedTaskId] = useState<string | null>(null)
   const [showAssignField, setShowAssignField] = useState(false)
-  const [assignToUser, setAssignToUser] = useState<Profile | null>(null)
+  const [assignToUsers, setAssignToUsers] = useState<Profile[]>([])
   const [assignSearch, setAssignSearch] = useState('')
   const [assignUsers, setAssignUsers] = useState<Profile[]>([])
   const [assignLoading, setAssignLoading] = useState(false)
@@ -106,7 +106,8 @@ function NewTaskPage() {
     const supabase = createClient()
 
     // If assigning inline, set visibility to 'assigned'
-    const effectiveVisibility = assignToUser ? 'assigned' : visibility
+    const hasAssignees = assignToUsers.length > 0
+    const effectiveVisibility = hasAssignees ? 'assigned' : visibility
 
     const payload = {
       title: title.trim(),
@@ -120,7 +121,7 @@ function NewTaskPage() {
       role_id: selectedRoleId || null,
       referent: referent.trim() || null,
       company: company.trim() || null,
-      ...(assignToUser ? { assigned_by: user.id, assigned_to: assignToUser.id } : {}),
+      ...(hasAssignees ? { assigned_by: user.id } : {}),
     }
 
     if (editId) {
@@ -134,9 +135,11 @@ function NewTaskPage() {
         .single()
 
       if (data) {
-        // If inline assignment, create the assignment record + notification
-        if (assignToUser) {
-          await assignTask(data.id, assignToUser.id)
+        // If inline assignment, create assignment records for each user
+        if (hasAssignees) {
+          for (const assignUser of assignToUsers) {
+            await assignTask(data.id, assignUser.id)
+          }
           router.push('/sent')
         } else if (visibility === 'assigned') {
           setSavedTaskId(data.id)
@@ -273,10 +276,34 @@ function NewTaskPage() {
             placeholder="Azienda associata (opzionale)"
           />
 
-          {/* Assign to (collapsible) */}
+          {/* Assign to (collapsible, multi-user) */}
           {!editId && (
             <div>
-              {!showAssignField && !assignToUser ? (
+              {/* Selected users chips */}
+              {assignToUsers.length > 0 && (
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assegnato a</label>
+                  <div className="flex flex-wrap gap-2">
+                    {assignToUsers.map((u) => (
+                      <div key={u.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                        <div className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-medium">
+                          {u.full_name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <span className="text-sm font-medium text-blue-700">{u.full_name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAssignToUsers(prev => prev.filter(p => p.id !== u.id))}
+                          className="p-0.5 rounded hover:bg-blue-100"
+                        >
+                          <X className="w-3.5 h-3.5 text-blue-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!showAssignField && assignToUsers.length === 0 ? (
                 <button
                   type="button"
                   onClick={() => setShowAssignField(true)}
@@ -285,26 +312,20 @@ function NewTaskPage() {
                   <UserPlus className="w-4 h-4" />
                   Assegna a qualcuno
                 </button>
-              ) : assignToUser ? (
+              ) : !showAssignField && assignToUsers.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAssignField(true)}
+                  className="flex items-center gap-2 text-sm text-blue-500 hover:text-blue-600 transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Aggiungi altro
+                </button>
+              ) : showAssignField ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assegnato a</label>
-                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-medium">
-                      {assignToUser.full_name?.charAt(0)?.toUpperCase() || '?'}
-                    </div>
-                    <span className="text-sm font-medium text-blue-700 flex-1">{assignToUser.full_name}</span>
-                    <button
-                      type="button"
-                      onClick={() => { setAssignToUser(null); setShowAssignField(false); setAssignSearch('') }}
-                      className="p-0.5 rounded hover:bg-blue-100"
-                    >
-                      <X className="w-3.5 h-3.5 text-blue-500" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assegna a</label>
+                  {assignToUsers.length === 0 && (
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assegna a</label>
+                  )}
                   <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -318,12 +339,19 @@ function NewTaskPage() {
                   </div>
                   <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-lg">
                     {assignLoading && <p className="text-xs text-gray-400 text-center py-3">Caricamento...</p>}
-                    {!assignLoading && assignUsers.length === 0 && <p className="text-xs text-gray-400 text-center py-3">Nessun utente</p>}
-                    {assignUsers.map((u) => (
+                    {!assignLoading && assignUsers.filter(u => !assignToUsers.some(s => s.id === u.id)).length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-3">Nessun utente</p>
+                    )}
+                    {assignUsers
+                      .filter(u => !assignToUsers.some(s => s.id === u.id))
+                      .map((u) => (
                       <button
                         key={u.id}
                         type="button"
-                        onClick={() => { setAssignToUser(u); setShowAssignField(false); setAssignSearch('') }}
+                        onClick={() => {
+                          setAssignToUsers(prev => [...prev, u])
+                          setAssignSearch('')
+                        }}
                         className="w-full flex items-center gap-2 p-2 hover:bg-gray-50 text-left"
                       >
                         <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-medium">
@@ -338,15 +366,15 @@ function NewTaskPage() {
                     onClick={() => { setShowAssignField(false); setAssignSearch('') }}
                     className="mt-1 text-xs text-gray-400 hover:text-gray-600"
                   >
-                    Annulla
+                    Chiudi
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
           {/* Visibility (only shown when not using inline assignment) */}
-          {!assignToUser && (
+          {assignToUsers.length === 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Visibilita</label>
               <div className="flex gap-2">

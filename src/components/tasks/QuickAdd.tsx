@@ -8,7 +8,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import type { TodoRole, Profile } from '@/types'
 
 interface QuickAddProps {
-  onAdd: (title: string, roleId?: string, dueDate?: string, assignToUserId?: string) => Promise<unknown>
+  onAdd: (title: string, roleId?: string, dueDate?: string, assignToUserIds?: string[]) => Promise<unknown>
   roles: TodoRole[]
 }
 
@@ -40,7 +40,7 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
   const [customDate, setCustomDate] = useState('')
   const [adding, setAdding] = useState(false)
   const [showAssign, setShowAssign] = useState(false)
-  const [assignTo, setAssignTo] = useState<Profile | null>(null)
+  const [assignToUsers, setAssignToUsers] = useState<Profile[]>([])
   const [assignSearch, setAssignSearch] = useState('')
   const [assignUsers, setAssignUsers] = useState<Profile[]>([])
   const [assignLoading, setAssignLoading] = useState(false)
@@ -83,11 +83,12 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
 
     setAdding(true)
     const dueDate = dateShortcut === 'custom' ? customDate || undefined : getDateFromShortcut(dateShortcut)
-    await onAdd(title.trim(), selectedRoleId, dueDate, assignTo?.id)
+    const userIds = assignToUsers.length > 0 ? assignToUsers.map(u => u.id) : undefined
+    await onAdd(title.trim(), selectedRoleId, dueDate, userIds)
     setTitle('')
     setDateShortcut('none')
     setCustomDate('')
-    setAssignTo(null)
+    setAssignToUsers([])
     setShowAssign(false)
     // Role stays selected for batch entry
     setAdding(false)
@@ -173,9 +174,38 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
         )}
       </div>
 
-      {/* Row 4: Quick assign (optional) */}
+      {/* Row 4: Quick assign (optional, multi-user) */}
       <div className="pl-7">
-        {!showAssign && !assignTo ? (
+        {/* Selected users chips */}
+        {assignToUsers.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <UserPlus className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+            {assignToUsers.map((u) => (
+              <div key={u.id} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-0.5">
+                <span className="text-xs font-medium text-blue-700">{u.full_name}</span>
+                <button
+                  type="button"
+                  onClick={() => setAssignToUsers(prev => prev.filter(p => p.id !== u.id))}
+                  className="text-blue-400 hover:text-blue-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {!showAssign && (
+              <button
+                type="button"
+                onClick={() => setShowAssign(true)}
+                className="text-xs text-blue-400 hover:text-blue-600 px-1.5"
+              >
+                + Aggiungi
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Add user button (when no users selected and not searching) */}
+        {!showAssign && assignToUsers.length === 0 && (
           <button
             type="button"
             onClick={() => setShowAssign(true)}
@@ -184,24 +214,13 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
             <UserPlus className="w-3.5 h-3.5" />
             Assegna
           </button>
-        ) : assignTo ? (
-          <div className="flex items-center gap-2">
-            <UserPlus className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-0.5">
-              <span className="text-xs font-medium text-blue-700">{assignTo.full_name}</span>
-              <button
-                type="button"
-                onClick={() => { setAssignTo(null); setShowAssign(false) }}
-                className="text-blue-400 hover:text-blue-600"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ) : (
+        )}
+
+        {/* Search dropdown */}
+        {showAssign && (
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
-              <UserPlus className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              {assignToUsers.length === 0 && <UserPlus className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
               <input
                 ref={searchRef}
                 type="text"
@@ -220,11 +239,16 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
             </div>
             <div className="flex gap-1 flex-wrap ml-5">
               {assignLoading && <span className="text-xs text-gray-400">...</span>}
-              {!assignLoading && assignUsers.map((u) => (
+              {!assignLoading && assignUsers
+                .filter(u => !assignToUsers.some(s => s.id === u.id))
+                .map((u) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => { setAssignTo(u); setShowAssign(false); setAssignSearch('') }}
+                  onClick={() => {
+                    setAssignToUsers(prev => [...prev, u])
+                    setAssignSearch('')
+                  }}
                   className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-50 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                 >
                   <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-medium">
@@ -233,7 +257,7 @@ export function QuickAdd({ onAdd, roles }: QuickAddProps) {
                   {u.full_name}
                 </button>
               ))}
-              {!assignLoading && assignUsers.length === 0 && (
+              {!assignLoading && assignUsers.filter(u => !assignToUsers.some(s => s.id === u.id)).length === 0 && (
                 <span className="text-xs text-gray-400">Nessun utente trovato</span>
               )}
             </div>

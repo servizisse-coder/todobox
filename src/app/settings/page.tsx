@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { Settings } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import RoleManager from '@/components/settings/RoleManager'
+import { WorkScheduleEditor } from '@/components/settings/WorkScheduleEditor'
 import { useRoles } from '@/hooks/useRoles'
 import { useTasks } from '@/hooks/useTasks'
 
@@ -47,6 +48,16 @@ export default function SettingsPage() {
               taskCountByRole={taskCountByRole}
             />
           )}
+        </section>
+
+        <hr className="my-8 border-gray-200" />
+
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Orario di lavoro</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Imposta il tuo orario lavorativo per ogni giorno della settimana.
+          </p>
+          <WorkScheduleEditor />
         </section>
       </div>
     </AppShell>

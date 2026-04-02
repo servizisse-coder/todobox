@@ -204,6 +204,49 @@ export function useTasks() {
     await fetchTasks()
   }
 
+  const startTask = async (task: TodoTask) => {
+    if (!user) return
+    const supabase = createClient()
+    const now = new Date().toISOString()
+
+    // Aggiornamento ottimistico
+    setTasks(prev => prev.map(t =>
+      t.id === task.id ? { ...t, status: 'in_progress' as TaskStatus, started_at: now } : t
+    ))
+
+    const { error } = await supabase.from('todo_tasks').update({
+      status: 'in_progress',
+      started_at: now,
+    }).eq('id', task.id)
+
+    if (error) {
+      setTasks(prev => prev.map(t =>
+        t.id === task.id ? { ...t, status: task.status, started_at: task.started_at } : t
+      ))
+      useToastStore.getState().addToast('Errore nell\'avvio del task', 'error')
+      return
+    }
+
+    await supabase.from('todo_updates').insert({
+      task_id: task.id,
+      user_id: user.id,
+      update_type: 'status_change',
+      old_value: task.status,
+      new_value: 'in_progress',
+    })
+
+    if (task.assigned_by && task.assigned_by !== user.id) {
+      await supabase.from('todo_notifications').insert({
+        user_id: task.assigned_by,
+        task_id: task.id,
+        type: 'task_updated',
+        message: `Il task "${task.title}" è stato avviato`,
+      })
+    }
+
+    await fetchTasks()
+  }
+
   const updatePriority = async (task: TodoTask, newPriority: TaskPriority) => {
     if (!user) return
     const supabase = createClient()
@@ -298,6 +341,7 @@ export function useTasks() {
     createTask,
     updateTask,
     toggleStatus,
+    startTask,
     updatePriority,
     deleteTask,
     claimTask,

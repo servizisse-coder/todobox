@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -11,15 +12,21 @@ import {
   Bell,
   BarChart3,
   Settings,
+  Users,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/components/providers/AuthProvider'
 
-const navItems = [
+const baseNavItems = [
   { href: '/', label: 'Oggi', icon: CalendarDays },
   { href: '/tasks', label: 'I miei Task', icon: CheckCircle2 },
   { href: '/assigned', label: 'Assegnati a me', icon: Inbox },
   { href: '/sent', label: 'Assegnati da me', icon: Send },
   { href: '/public', label: 'Pubblici', icon: Globe },
   { href: '/review', label: 'Revisione', icon: BarChart3 },
+]
+
+const bottomNavItems = [
   { href: '/settings', label: 'Impostazioni', icon: Settings },
   { href: '/notifications', label: 'Notifiche', icon: Bell },
 ]
@@ -31,6 +38,28 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const { user } = useAuth()
+  const [isSupervisor, setIsSupervisor] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    const check = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('todo_supervisor_access')
+        .select('id')
+        .eq('supervisor_id', user.id)
+        .limit(1)
+      setIsSupervisor((data?.length || 0) > 0)
+    }
+    check()
+  }, [user])
+
+  const navItems = [
+    ...baseNavItems,
+    ...(isSupervisor ? [{ href: '/supervisor', label: 'Team', icon: Users }] : []),
+    ...bottomNavItems,
+  ]
 
   return (
     <>
@@ -53,7 +82,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       >
         <nav className="p-3 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href || (item.href === '/supervisor' && pathname.startsWith('/supervisor'))
             const Icon = item.icon
             return (
               <Link

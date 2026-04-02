@@ -55,7 +55,7 @@ const priorityOrder = { high: 0, medium: 1, low: 2 }
 
 export default function TodayPage() {
   const { user } = useAuth()
-  const { tasks, loading, createTask, toggleStatus, updatePriority, deleteTask } = useTasks()
+  const { tasks, loading, createTask, toggleStatus, startTask, updatePriority, deleteTask } = useTasks()
   const { roles } = useRoles()
   const { assignTask } = useAssignments()
   const { filters, setFilter } = useFilterStore()
@@ -105,15 +105,18 @@ export default function TodayPage() {
 
   const { completed, total, completedByMe, delegatedCompleted } = useProductivity(myTasks)
 
-  const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string, assignToUserId?: string) => {
+  const handleQuickAdd = async (title: string, roleId?: string, dueDate?: string, assignToUserIds?: string[]) => {
+    const hasAssignees = assignToUserIds && assignToUserIds.length > 0
     const task = await createTask({
       title,
       role_id: roleId || null,
       due_date: dueDate ? new Date(dueDate + 'T12:00:00').toISOString() : null,
-      ...(assignToUserId ? { visibility: 'assigned', assigned_by: user?.id } : {}),
+      ...(hasAssignees ? { visibility: 'assigned', assigned_by: user?.id } : {}),
     })
-    if (assignToUserId && task?.id) {
-      await assignTask(task.id, assignToUserId)
+    if (hasAssignees && task?.id) {
+      for (const userId of assignToUserIds) {
+        await assignTask(task.id, userId)
+      }
     }
   }
 
@@ -173,6 +176,7 @@ export default function TodayPage() {
                         key={task.id}
                         task={task}
                         onToggle={toggleStatus}
+                        onStart={startTask}
                         onPriorityChange={updatePriority}
                         onDelete={deleteTask}
                         showAssignment

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MoreHorizontal, Trash2, Edit3, User, ExternalLink } from 'lucide-react'
+import { MoreHorizontal, Trash2, Edit3, User, ExternalLink, Play, Square } from 'lucide-react'
 import Link from 'next/link'
 import type { TodoTask, TaskPriority } from '@/types'
 import { PriorityBadge } from './PriorityBadge'
@@ -13,12 +13,13 @@ import { useAuth } from '@/components/providers/AuthProvider'
 interface TaskCardProps {
   task: TodoTask
   onToggle: (task: TodoTask) => void
+  onStart?: (task: TodoTask) => void
   onPriorityChange: (task: TodoTask, priority: TaskPriority) => void
   onDelete: (taskId: string) => void
   showAssignment?: boolean
 }
 
-export function TaskCard({ task, onToggle, onPriorityChange, onDelete, showAssignment }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onStart, onPriorityChange, onDelete, showAssignment }: TaskCardProps) {
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const isDone = task.status === 'done'
@@ -43,6 +44,27 @@ export function TaskCard({ task, onToggle, onPriorityChange, onDelete, showAssig
             </svg>
           )}
         </button>
+
+        {/* Play/Stop button */}
+        {!isDone && onStart && (
+          task.status === 'todo' ? (
+            <button
+              onClick={() => onStart(task)}
+              className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+              title="Avvia task"
+            >
+              <Play className="w-3 h-3 fill-current" />
+            </button>
+          ) : task.status === 'in_progress' ? (
+            <button
+              onClick={() => onToggle(task)}
+              className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full text-blue-500 animate-pulse hover:text-green-500 hover:bg-green-50 transition-all"
+              title="Completa task"
+            >
+              <Square className="w-3 h-3 fill-current" />
+            </button>
+          ) : null
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
