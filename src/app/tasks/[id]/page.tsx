@@ -367,6 +367,12 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               })}
             </div>
           )}
+
+          {task.status === 'done' && task.completed_at && (
+            <p className="text-[10px] text-gray-400 mt-2 text-center">
+              Gli allegati verranno rimossi automaticamente 30 giorni dopo il completamento del task
+            </p>
+          )}
         </div>
 
         {/* Timeline */}
